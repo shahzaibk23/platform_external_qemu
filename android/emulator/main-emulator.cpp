@@ -152,7 +152,7 @@ static bool isStringInList(const char* str,
 // i.e. the 'ranchu' virtual board.
 static bool isCpuArchSupportedByRanchu(const char* avdArch) {
     static const char* const kSupported[] =
-            {"arm", "arm64", "mips", "mips64", "x86", "x86_64"};
+            {"arm", "arm64", "mips", "mips64", "x86", "x86_64", "riscv64"};
     return isStringInList(avdArch, kSupported, ARRAY_SIZE(kSupported));
 }
 
@@ -1125,6 +1125,8 @@ static const char* getQemuArch(const char* avdArch, bool force64bitTarget) {
         {"x86","i386"},
         {"x86_64","x86_64"},
         {"x86_64","x86_64"},
+        {"riscv64", "riscv64"},
+        {"riscvimafdc", "riscv64"},
     };
     size_t n;
     for (n = 0; n < ARRAY_SIZE(kQemuArchs); ++n) {
