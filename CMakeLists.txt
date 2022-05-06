@@ -720,12 +720,15 @@ set(ANDROID_QEMU_i386_DEVICES_linux-x86_64
 )
 set(ANDROID_QEMU_arm_DEVICES_linux-x86_64
     "accel/stubs/hax-stub.c;${ANDROID_QEMU_ARM_DEVICES}")
+  
+set(ANDROID_QEMU_riscv64_DEVICES_linux-x86_64 "accel/stubs/hax-stub.c;${ANDROID_QEMU_ARM_DEVICES}")
 
 set(ANDROID_QEMU_i386_DEVICES_linux-aarch64
     "accel/stubs/hax-stub.c;hw/i386/acpi-build.c;${ANDROID_QEMU_COMMON_DEVICES}"
 )
 set(ANDROID_QEMU_arm_DEVICES_linux-aarch64
     "accel/stubs/hax-stub.c;${ANDROID_QEMU_ARM_DEVICES}")
+
 
 android_target_include_directories(android-qemu-deps linux-x86_64 INTERFACE
                                    linux-headers)
@@ -917,6 +920,10 @@ if(NOT OPTION_AEMU_LIBS_ONLY)
       x86_64 "${ANDROID_QEMU_i386_DEVICES_${ANDROID_TARGET_TAG}}")
     android_add_qemu_headless_executable(
       x86_64 "${ANDROID_QEMU_i386_DEVICES_${ANDROID_TARGET_TAG}}")
+    android_add_qemu_executable(
+      riscv64 "${ANDROID_QEMU_riscv64_DEVICES_${ANDROID_TARGET_TAG}}")
+    android_add_qemu_headless_executable(
+      riscv64 "${ANDROID_QEMU_riscv64_DEVICES_${ANDROID_TARGET_TAG}}")
   endif()
     android_add_qemu_executable(
       aarch64 "${ANDROID_QEMU_arm_DEVICES_${ANDROID_TARGET_TAG}}")
