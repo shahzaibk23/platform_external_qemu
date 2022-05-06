@@ -58,8 +58,8 @@ allowing one to inspect build failures easily."
 
 package_builder_register_options
 
-VALID_TARGETS="arm,arm64,x86,x86_64"
-DEFAULT_TARGETS="arm,arm64,x86,x86_64"
+VALID_TARGETS="arm,arm64,x86,x86_64,riscv64"
+DEFAULT_TARGETS="arm,arm64,x86,x86_64,ricv64"
 
 OPT_TARGET=
 option_register_var "--target=<list>" OPT_TARGET \
