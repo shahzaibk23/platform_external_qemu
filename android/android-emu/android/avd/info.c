@@ -1424,15 +1424,15 @@ is_mipsish(const AvdInfo* i)
     }
 }
 
-static bool
-is_riscvish(const AvdInfo* i)
-{
-    if (strncmp(i->targetAbi, "riscv", 5) == 0) {
-        return true;
-    } else {
-        return false;
-    }
-}
+// static bool
+// is_riscvish(const AvdInfo* i)
+// {
+//     if (strncmp(i->targetAbi, "riscv", 5) == 0) {
+//         return true;
+//     } else {
+//         return false;
+//     }
+// }
 
 /*
     arm is pretty tricky: the system image device path
@@ -1457,15 +1457,15 @@ const char* const mips_device_id[] = {
     "1f03d800",
 };
 
-// HAZARD: Unverified RISC-V Block Address
-const char* const riscv64_device_id[] = {
-    "20000000",
-    "20000a00",
-    "20000200",
-    "20000400",
-    "20000600",
-    "20000800",
-}
+// // HAZARD: Unverified RISC-V Block Address
+// const char* const riscv64_device_id[] = {
+//     "20000000",
+//     "20000a00",
+//     "20000200",
+//     "20000400",
+//     "20000600",
+//     "20000800",
+// }
 
 static
 bool has_sdcard(const AvdInfo* i) {
@@ -1537,9 +1537,9 @@ char* get_device_path(const AvdInfo* info, const char* image)
     } else if (is_mipsish(info)) {
         snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
                 mips_device_id[i], image);
-    } else if (is_riscvish(info)) {
-        snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
-                riscv64_device_id[i], image);
+    // } else if (is_riscvish(info)) {
+    //     snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
+    //             riscv64_device_id[i], image);
     } else {
         snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
                 info->targetAbi, image);
