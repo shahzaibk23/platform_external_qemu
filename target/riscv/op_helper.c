@@ -466,7 +466,7 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_SCAUSE:
         return env->scause;
     case CSR_SATP: /* CSR_SPTBR */
-        if(!riscv_feature (env, RISCV_FEATURE_MMU)) {
+        if (!riscv_feature(env, RISCV_FEATURE_MMU)) {
             return 0;
         }
         if (env->priv_ver >= PRIV_VERSION_1_10_0) {

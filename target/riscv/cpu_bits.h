@@ -25,17 +25,18 @@
 #define FSR_NXA  (FPEXC_NX << FSR_AEXC_SHIFT)
 #define FSR_AEXC (FSR_NVA | FSR_OFA | FSR_UFA | FSR_DZA | FSR_NXA)
 
-/* User Trap Status */
-#define CSR_USTATUS     0x000
-#define CSR_UIE         0x004
-#define CSR_UTVEC       0x005
+/* User Trap Setup */
+#define CSR_USTATUS         0x000
+#define CSR_UIE             0x004
+#define CSR_UTVEC           0x005
 
 /* User Trap Handling */
-#define CSR_USCRATCH    0x040
-#define CSR_UEPC        0x041
-#define CSR_UCAUSE      0x042
-#define CSR_UTVAL       0x043
-#define CSR_UIP         0x044
+#define CSR_USCRATCH        0x040
+#define CSR_UEPC            0x041
+#define CSR_UCAUSE          0x042
+#define CSR_UTVAL           0x043
+#define CSR_UIP             0x044
+
 /* CSR numbers */
 #define CSR_FFLAGS 0x1
 #define CSR_FRM 0x2
@@ -73,12 +74,12 @@
 #define CSR_HPMCOUNTER30 0xc1e
 #define CSR_HPMCOUNTER31 0xc1f
 #define CSR_SSTATUS 0x100
-#define CSR_SEDLEG                  0x102    /* Supervisor-level exception delegation */
-#define CSR_SIDELEG                 0x103    /* Supervisor-level interrupt delegation */
+#define CSR_SEDELEG         0x102
+#define CSR_SIDELEG         0x103
 #define CSR_SIE 0x104
 #define CSR_STVEC 0x105
 #define CSR_SCOUNTEREN 0x106
-#define CSR_STVT                    0x107    /* Supervisor-level trap vector */
+#define CSR_STVT            0x107 /* clic-spec-draft */
 #define CSR_SSCRATCH 0x140
 #define CSR_SEPC 0x141
 #define CSR_SCAUSE 0x142
@@ -255,45 +256,45 @@
 #define CSR_MHPMCOUNTER30H 0xb9e
 #define CSR_MHPMCOUNTER31H 0xb9f
 
-/* Hypervisor CSRs */
-#define CSR_HSTATUS                 0xa00 
-#define CSR_HEDLEG                  0xa02 
-#define CSR_HIDELEG                 0xa03 
-#define CSR_HGATP                   0xa04 
+/* Hpervisor CSRs */
+#define CSR_HSTATUS         0xa00
+#define CSR_HEDELEG         0xa02
+#define CSR_HIDELEG         0xa03
+#define CSR_HGATP           0xa80
 
-/* Legacy Hypervisor Trap Setup (priv v1.9.1) */ 
-#define CSR_HIE                     0x204 
-#define CSR_HTVEC                   0x205
+/* Legacy Hypervisor Trap Setup (priv v1.9.1) */
+#define CSR_HIE             0x204
+#define CSR_HTVEC           0x205
 
 /* Legacy Hypervisor Trap Handling (priv v1.9.1) */
-#define CSR_HSCRATCH                0x240
-#define CSR_HEPC                    0x241
-#define CSR_HCAUSE                  0x242
-#define CSR_HBADADDR                0x243
-#define CSR_HIP                     0x244
-#define CSR_MHCOUNTEREN             0x322
+#define CSR_HSCRATCH        0x240
+#define CSR_HEPC            0x241
+#define CSR_HCAUSE          0x242
+#define CSR_HBADADDR        0x243
+#define CSR_HIP             0x244
+#define CSR_MHCOUNTEREN     0x322
 
 /* User Vector CSRs */
-#define CSR_VSTART                  0x008
-#define CSR_VXSAT                   0x009
-#define CSR_VXRM                    0x00a
-#define CSR_VL                      0xc20
-#define CSR_VTYPE                   0xc21
+#define CSR_VSTART          0x008
+#define CSR_VXSAT           0x009
+#define CSR_VXRM            0x00a
+#define CSR_VL              0xc20
+#define CSR_VTYPE           0xc21
 
 /* Supervisor Trap Handling */
-#define CSR_STVAL                   0x143
-#define CSR_SNXTI                   0x145
-#define CSR_SINTSTATUS              0x146
-#define CSR_SSCRATCHCSW             0x148
+#define CSR_STVAL           0x143
+#define CSR_SNXTI           0x145 /* clic-spec-draft */
+#define CSR_SINTSTATUS      0x146 /* clic-spec-draft */
+#define CSR_SSCRATCHCSW     0x148 /* clic-spec-draft */
 
 /* Legacy Machine Protection and Translation (priv v1.9.1) */
-#define CSR_MBASE                   0x380
-#define CSR_MBOUND                  0x381
-#define CSR_MIBASE                  0x382
-#define CSR_MIBOUND                 0x383
-#define CSR_MDBASE                  0x384
-#define CSR_MDBOUND                 0x385
-#define CSR_MTVAL                   0x343
+#define CSR_MBASE           0x380
+#define CSR_MBOUND          0x381
+#define CSR_MIBASE          0x382
+#define CSR_MIBOUND         0x383
+#define CSR_MDBASE          0x384
+#define CSR_MDBOUND         0x385
+#define CSR_MTVAL           0x343
 
 /* mstatus bits */
 #define MSTATUS_UIE         0x00000001
@@ -461,5 +462,3 @@
 #define PTE_SOFT  0x300 /* Reserved for Software */
 
 #define PTE_PPN_SHIFT 10
-
-// #define PTE_TABLE(PTE) (((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
