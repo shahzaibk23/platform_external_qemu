@@ -54,11 +54,11 @@ struct ConfigDirs {
     // Returns the path to the root of the android sdk by checking
     // - ANDROID_HOME, then
     // - ANDROID_SDK_ROOT
-    static std::string getSdkRootDirectoryByEnv(bool verbose = false);
+    static std::string getSdkRootDirectoryByEnv();
 
     // Returns the path to the root of the android sdk by inferring it from the
     // path of the running emulator binary.
-    static std::string getSdkRootDirectoryByPath(bool verbose = false);
+    static std::string getSdkRootDirectoryByPath();
 
     // Returns the path to the root of the android sdk.
     // - If ANDROID_SDK_ROOT is defined in the environment and the path exists,
@@ -66,7 +66,7 @@ struct ConfigDirs {
     //
     // - Otherwise, Sdk root is inferred from the path of the running emulator
     //   binary.
-    static std::string getSdkRootDirectory(bool verbose = false);
+    static std::string getSdkRootDirectory();
 
     // Returns the <user-specific_tmp_directory>/avd/running directory
     // used by android studio to detect running emulator. This directory
@@ -97,7 +97,7 @@ private:
     // Check if the specified path is a valid SDK root path.
     // It is considered valid if it has a 'platforms' subdirectory
     // and a 'platform-tools' subdirectory.
-    static bool isValidSdkRoot(std::string rootPath, bool verbose = false);
+    static bool isValidSdkRoot(std::string rootPath);
 
     static std::string getAvdRootDirectoryWithPrefsRoot(const std::string& path);
 };

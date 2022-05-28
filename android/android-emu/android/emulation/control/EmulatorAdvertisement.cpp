@@ -25,7 +25,7 @@
 #include "android/base/system/System.h"    // for System, System::WaitExitRe...
 #include "android/emulation/ConfigDirs.h"  // for ConfigDirs
 #include "android/globals.h"
-#include "android/utils/path.h"
+
 
 namespace android {
 namespace emulation {
@@ -52,16 +52,6 @@ int EmulatorAdvertisement::garbageCollect() const {
     int collected = 0;
     for (auto entry : System::get()->scanDirEntries(mSharedDirectory)) {
         int pid = 0;
-        if (sscanf(entry.c_str(), "%d", &pid) == 1) {
-            auto status = System::get()->waitForProcessExit(pid, 0);
-            if (status != System::WaitExitResult::Timeout) {
-                collected++;
-                auto loc = android::base::pj(mSharedDirectory,
-                                             std::to_string(pid));
-                printf("Deleting %s\n", loc.c_str());
-                path_delete_dir(loc.c_str());
-            }
-        }
         if (sscanf(entry.c_str(), location_format, &pid) == 1) {
             auto status = System::get()->waitForProcessExit(pid, 0);
             if (status != System::WaitExitResult::Timeout) {
@@ -74,23 +64,6 @@ int EmulatorAdvertisement::garbageCollect() const {
     }
 
     return collected;
-}
-
-std::vector<std::string> EmulatorAdvertisement::discoverRunningEmulators(std::string sharedDirectory) {
-    std::vector<std::string> discovered;
-    std::string prefix = PathUtils::addTrailingDirSeparator(sharedDirectory);
-
-    for (auto entry : System::get()->scanDirEntries(sharedDirectory)) {
-        int pid = 0;
-        if (sscanf(entry.c_str(), "%d", &pid) == 1) {
-            auto status = System::get()->waitForProcessExit(pid, 0);
-            if (status == System::WaitExitResult::Timeout) {
-                discovered.push_back(PathUtils::join(prefix, entry));
-            }
-        }
-    }
-
-    return discovered;
 }
 
 void EmulatorAdvertisement::remove() const {
@@ -108,8 +81,7 @@ std::string EmulatorAdvertisement::location() const {
 // True if a advertisement exists for the given pid.
 bool EmulatorAdvertisement::exists(System::Pid pid) {
     std::string pidfile = android::base::StringFormat(location_format, pid);
-    std::string pidPath = android::base::pj(
-            android::ConfigDirs::getDiscoveryDirectory(), pidfile);
+    std::string pidPath = android::base::pj(android::ConfigDirs::getDiscoveryDirectory(), pidfile);
     return System::get()->pathIsFile(pidPath);
 }
 

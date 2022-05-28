@@ -26,7 +26,6 @@
 #include "android/emulation/android_pipe_host.h"
 #include "android/emulation/DeviceContextRunner.h"
 #include "android/emulation/VmLock.h"
-#include "android/utils/GfxstreamFatalError.h"
 
 #include <algorithm>
 #include <memory>
@@ -455,9 +454,7 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
                             "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)",
                             __func__, pipe->name(), (unsigned)pendingFlags)
                             .c_str());
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "fatal: AndroidPipe [" << pipe->name() << "] hwPipe is NULL(flags = 0x"
-                << std::hex << unsigned(pendingFlags) << " )";
+            abort();
         }
         sGlobals->pipeWaker.signalWake(hwPipe, pendingFlags);
         DD("%s: singalled wake flags %d for pipe hwpipe=%p", __func__,
@@ -506,9 +503,7 @@ void AndroidPipe::signalWake(int wakeFlags) {
                         "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)",
                         __func__, name(), (unsigned)wakeFlags)
                         .c_str());
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL (flags = 0x" << std::hex
-            << unsigned(wakeFlags) << ")";
+        abort();
     }
     sGlobals->pipeWaker.signalWake(mHwPipe, wakeFlags);
 }
@@ -521,8 +516,7 @@ void AndroidPipe::closeFromHost() {
                 StringFormat("AndroidPipe::%s [%s]: hwPipe is NULL", __func__,
                              name())
                         .c_str());
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL";
+        abort();
     }
     sGlobals->pipeWaker.closeFromHost(mHwPipe);
 }
@@ -536,8 +530,7 @@ void AndroidPipe::abortPendingOperation() {
                 StringFormat("AndroidPipe::%s [%s]: hwPipe is NULL", __func__,
                              name())
                         .c_str());
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL";
+        abort();
     }
     sGlobals->pipeWaker.abortPending(mHwPipe);
 }
@@ -834,9 +827,7 @@ void* android_pipe_lookup_by_id(const int id) {
                     StringFormat("Pipe id (%d) is not unique, at least two "
                                  "pipes are found: `%s` and `%s`",
                                  __func__, id, tagFound, cb.second).c_str());
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Pipe id (" << id << ") is not unique, at least two pipes are found: `"
-                    << tagFound << "` and `" << cb.second << "`";
+                abort();
             } else {
                 hwPipeFound = hwPipe;
                 tagFound = cb.second;

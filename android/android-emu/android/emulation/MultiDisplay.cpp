@@ -362,7 +362,7 @@ int MultiDisplay::destroyDisplay(uint32_t displayId) {
         }
         needUIUpdate = ((mMultiDisplay[displayId].cb != 0) ? true : false);
         mMultiDisplay.erase(displayId);
-        if (needUIUpdate && !isMultiDisplayWindow()) {
+        if (needUIUpdate) {
             recomputeLayoutLocked();
             getCombinedDisplaySizeLocked(&width, &height);
             if (getNumberActiveMultiDisplaysLocked() == 1) {
@@ -379,11 +379,7 @@ int MultiDisplay::destroyDisplay(uint32_t displayId) {
             states.state == RECORDER_RECORDING) {
             mRecordAgent->stopRecording();
         }
-        if (isMultiDisplayWindow()) {
-            mWindowAgent->addMultiDisplayWindow(displayId, false, 0, 0);
-        } else {
-            mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
-        }
+        mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
         if (restoreSkin) {
             mWindowAgent->restoreSkin();
         }
@@ -422,12 +418,10 @@ int MultiDisplay::setDisplayPose(uint32_t displayId,
         mMultiDisplay[displayId].pos_x = x;
         mMultiDisplay[displayId].pos_y = y;
         if (mMultiDisplay[displayId].cb != 0) {
-            if (!isMultiDisplayWindow()) {
-                if (x == -1 && y == -1) {
-                    recomputeLayoutLocked();
-                }
-                getCombinedDisplaySizeLocked(&width, &height);
+            if (x == -1 && y == -1) {
+                recomputeLayoutLocked();
             }
+            getCombinedDisplaySizeLocked(&width, &height);
             UIUpdate = true;
         }
     }
@@ -440,11 +434,7 @@ int MultiDisplay::setDisplayPose(uint32_t displayId,
         }
     }
     if (UIUpdate) {
-        if (isMultiDisplayWindow()) {
-            mWindowAgent->addMultiDisplayWindow(displayId, true, w, h);
-        } else {
-            mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
-        }
+        mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
     }
     LOG(VERBOSE) << "setDisplayPose " << displayId << " x " << x << " y " << y
                  << " w " << w << " h " << h << " dpi " << dpi;
@@ -495,17 +485,12 @@ int MultiDisplay::setDisplayColorBuffer(uint32_t displayId,
             // first time cb assigned, update the UI
             needUpdate = true;
             dpi = mMultiDisplay[displayId].dpi;
-            if (isMultiDisplayWindow()) {
-                width = mMultiDisplay[displayId].width;
-                height = mMultiDisplay[displayId].height;
-            } else {
-                recomputeLayoutLocked();
-                getCombinedDisplaySizeLocked(&width, &height);
-                if (getNumberActiveMultiDisplaysLocked() == 2) {
-                    // disable skin when first display set, index 0 is the default
-                   // one.
-                    noSkin = true;
-                }
+            recomputeLayoutLocked();
+            getCombinedDisplaySizeLocked(&width, &height);
+            if (getNumberActiveMultiDisplaysLocked() == 2) {
+                // disable skin when first display set, index 0 is the default
+                // one.
+                noSkin = true;
             }
         }
         mMultiDisplay[displayId].cb = colorBuffer;
@@ -515,13 +500,9 @@ int MultiDisplay::setDisplayColorBuffer(uint32_t displayId,
         mWindowAgent->setNoSkin();
     }
     if (needUpdate) {
-        if (isMultiDisplayWindow()) {
-            mWindowAgent->addMultiDisplayWindow(displayId, true, width, height);
-        } else {
-            // Explicitly adjust host window size
-            LOG(VERBOSE) << "change window size to " << width << "x" << height;
-            mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
-        }
+        // Explicitly adjust host window size
+        LOG(VERBOSE) << "change window size to " << width << "x" << height;
+        mWindowAgent->setUIDisplayRegion(0, 0, width, height, true);
     }
     if (needUpdate && featurecontrol::isEnabled(android::featurecontrol::Minigbm)) {
         // b/131884992 b/186124236
@@ -604,10 +585,6 @@ int MultiDisplay::getNumberActiveMultiDisplaysLocked() {
         }
     }
     return count;
-}
-
-bool MultiDisplay::isMultiDisplayWindow() {
-    return android_hw->hw_multi_display_window;
 }
 
 /*
@@ -853,37 +830,20 @@ void MultiDisplay::onLoad(base::Stream* stream) {
             ids.insert(iter.first);
         }
         activeBeforeLoad = getNumberActiveMultiDisplaysLocked() > 1;
-        if (activeBeforeLoad && isMultiDisplayWindow()) {
-            for (auto const& c : mMultiDisplay) {
-                if (c.second.cb > 0) {
-                    mWindowAgent->addMultiDisplayWindow(c.first, false, 0, 0);
-                }
-            }
-        }
         mMultiDisplay.clear();
         mMultiDisplay = displaysOnLoad;
         activeAfterLoad = getNumberActiveMultiDisplaysLocked() > 1;
-        if (activeAfterLoad && isMultiDisplayWindow()) {
-            for (auto const& c : mMultiDisplay) {
-                if (c.second.cb > 0) {
-                    mWindowAgent->addMultiDisplayWindow(c.first,
-                                                        true,
-                                                        c.second.width,
-                                                        c.second.height);
-                }
-            }
-        }
         getCombinedDisplaySizeLocked(&combinedDisplayWidth,
                                      &combinedDisplayHeight);
     }
-    if (!isMultiDisplayWindow()) {
-        if (activeAfterLoad) {
-            if (!activeBeforeLoad) {
-                mWindowAgent->setNoSkin();
-            }
-            mWindowAgent->setUIDisplayRegion(0, 0, combinedDisplayWidth,
-                                             combinedDisplayHeight, true);
-        } else if (activeBeforeLoad) {
+    if (activeAfterLoad) {
+        if (!activeBeforeLoad) {
+            mWindowAgent->setNoSkin();
+        }
+        mWindowAgent->setUIDisplayRegion(0, 0, combinedDisplayWidth,
+                                         combinedDisplayHeight, true);
+    } else {
+        if (activeBeforeLoad) {
             mWindowAgent->setUIDisplayRegion(0, 0, combinedDisplayWidth,
                                              combinedDisplayHeight, true);
             mWindowAgent->restoreSkin();

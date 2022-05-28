@@ -37,7 +37,6 @@
 #include "observation.pb.h"                           // for Observation
 #include "pngconf.h"                                  // for png_byte, png_b...
 
-using android::base::PathUtils;
 
 namespace android {
 namespace emulation {
@@ -234,7 +233,7 @@ bool captureScreenshot(
     // extension, write a serialized Observation instead.
     std::string outputFilePath;
     if (str_ends_with(outputDirectoryPath.data(), ".pb")) {
-        std::ofstream file(PathUtils::asUnicodePath(outputDirectoryPath.data()).c_str(), std::ios_base::binary);
+        std::ofstream file(outputDirectoryPath.data(), std::ios_base::binary);
         if (!file) {
             LOG(ERROR) << "Failed to open " << outputDirectoryPath;
             return false;

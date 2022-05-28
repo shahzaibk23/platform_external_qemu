@@ -319,7 +319,7 @@ std::unique_ptr<CrashService> CrashService::makeCrashService(
 }
 
 std::string CrashService::readFile(StringView path) {
-    std::ifstream is(PathUtils::asUnicodePath(path).c_str());
+    std::ifstream is(c_str(path));
 
     if (!is) {
         std::string errmsg;

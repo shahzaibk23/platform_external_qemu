@@ -58,8 +58,7 @@ char* path_getAvdSnapshotPresent( const char* avdName );
  * root SDK path. Caller must free() the result.
  */
 char* path_getAvdSystemPath(const char* avdName,
-                            const char* sdkRootPath,
-                            bool verbose);
+                            const char* sdkRootPath);
 
 /* Return the value of hw.gpu.mode for a given AVD.
  * Caller must free() returned string.
@@ -116,7 +115,6 @@ typedef enum {
     AVD_TV = 1,
     AVD_WEAR = 2,
     AVD_ANDROID_AUTO = 3,
-    AVD_DESKTOP = 4,
     AVD_OTHER = 255,
 } AvdFlavor;
 

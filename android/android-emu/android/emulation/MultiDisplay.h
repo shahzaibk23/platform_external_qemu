@@ -115,7 +115,6 @@ public:
     int getColorBufferDisplay(uint32_t colorBuffer, uint32_t* displayId);
     int setDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer);
     void getCombinedDisplaySize(uint32_t* w, uint32_t* h);
-    bool isMultiDisplayWindow();
     void loadConfig();
     void onSave(base::Stream* stream);
     void onLoad(base::Stream* stream);

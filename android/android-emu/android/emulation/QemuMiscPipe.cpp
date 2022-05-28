@@ -57,7 +57,7 @@ static int64_t s_reset_request_uptime_ms;
 extern "C" int get_host_cts_heart_beat_count(void);
 extern "C" bool android_op_wipe_data;
 
-using android::base::PathUtils;
+
 namespace fc = android::featurecontrol;
 
 namespace android {
@@ -257,7 +257,7 @@ static void runAdbScripts(emulation::AdbInterface* adbInterface,
 
     auto list = base::System::get()->scanDirEntries(adbScriptsDir, true);
     for (auto filepath : list) {
-        std::ifstream inFile(PathUtils::asUnicodePath(filepath).c_str(), std::ios_base::in);
+        std::ifstream inFile(filepath, std::ios_base::in);
         if (!inFile.is_open()) {
             continue;
         }
@@ -305,10 +305,10 @@ static void qemuMiscPipeDecodeAndExecute(const std::vector<uint8_t>& input,
             dinfo("Increasing screen off timeout, "
                     "logcat buffer size to 2M.");
 
-            const char* pTimeout = avdInfo_screen_off_timeout(avdInfo_getApiLevel(android_avdInfo));
+            
             adbInterface->enqueueCommand(
                 { "shell", "settings", "put", "system",
-                  "screen_off_timeout", pTimeout});
+                  "screen_off_timeout", "2147483647" });
             adbInterface->enqueueCommand(
                 { "shell", "logcat", "-G", "2M" });
 
@@ -328,7 +328,7 @@ static void qemuMiscPipeDecodeAndExecute(const std::vector<uint8_t>& input,
                         adbInterface->enqueueCommand(
                             { "shell", "settings", "put", "global",
                               "force_resizable_activities", "1" });
-                        restartFrameWork = true;
+                    
                     }
                 }
             }

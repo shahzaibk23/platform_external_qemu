@@ -498,10 +498,17 @@ _avdInfo_getContentPath( AvdInfo*  i )
 
     char temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
 
-    i->contentPath = NULL;
+    i->contentPath = iniFile_getString(i->rootIni, ROOT_ABS_PATH_KEY, NULL);
 
-    /* try relatvie path first */
-    {
+    if (i->contentPath == NULL) {
+        derror("bad config: %s",
+               "virtual device file lacks a "ROOT_ABS_PATH_KEY" entry");
+        return -1;
+    }
+
+    if (!path_is_dir(i->contentPath)) {
+        // If the absolute path doesn't match an actual directory, try
+        // the relative path if present.
         const char* relPath = iniFile_getString(i->rootIni, ROOT_REL_PATH_KEY, NULL);
         if (relPath != NULL) {
             p = bufprint_config_path(temp, end);
@@ -510,18 +517,6 @@ _avdInfo_getContentPath( AvdInfo*  i )
                 str_reset(&i->contentPath, temp);
             }
         }
-    }
-
-    if (!path_is_dir(i->contentPath)) {
-        /* try absolute path if present */
-        i->contentPath = iniFile_getString(i->rootIni, ROOT_ABS_PATH_KEY, NULL);
-    }
-
-    if (!path_is_dir(i->contentPath)) {
-        derror("bad config: %s",
-               "virtual device file has no valid " ROOT_REL_PATH_KEY
-               " entry nor " ROOT_ABS_PATH_KEY " entry");
-        return -1;
     }
 
     D("virtual device content at %s", i->contentPath);
@@ -661,9 +656,7 @@ static const struct {
     { 29, "Q", "10.0 (Q) - API 29" },
     { 30, "R", "11.0 (R) - API 30"},
     { 31, "S", "12.0 (S) - API 31"},
-    { 32, "Sv2", "12.0 (S) - API 32"},
-    //Change to "13.0 (T) - API 33" once SDK is finalized.
-    { 33, "Tiramisu", "Tiramisu Preview - API Tiramisu"},
+    { 32, "Sv2", "12.0 (S) - API 32"}
 };
 
 const char* avdInfo_getApiDessertName(int apiLevel) {
@@ -1427,13 +1420,12 @@ is_mipsish(const AvdInfo* i)
 static bool
 is_riscvish(const AvdInfo* i)
 {
-    if (strncmp(i->targetAbi, "riscv", 5) == 0) {
+    if (strncmp(i->targetArch, "riscv", 5) == 0) {
         return true;
     } else {
         return false;
     }
 }
-
 /*
     arm is pretty tricky: the system image device path
     changes depending on the number of disks: the last
@@ -1455,9 +1447,9 @@ const char* const mips_device_id[] = {
     "1f03d400",
     "1f03d600",
     "1f03d800",
-}; 
+};
 
-// HAZARD: Unverified RISC-V Block Address
+/* FIXME: RISC-V block addr not verified */
 const char* const riscv64_device_id[] = {
     "20000000",
     "20000a00",
@@ -1465,7 +1457,7 @@ const char* const riscv64_device_id[] = {
     "20000400",
     "20000600",
     "20000800",
-}
+};
 
 static
 bool has_sdcard(const AvdInfo* i) {
@@ -1540,9 +1532,6 @@ char* get_device_path(const AvdInfo* info, const char* image)
     } else if (is_riscvish(info)) {
         snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
                 riscv64_device_id[i], image);
-    } else {
-        snprintf(buf, sizeof(buf), "/dev/block/platform/%s.virtio_mmio/by-name/%s",
-                info->targetAbi, image);
     }
     return strdup(buf);
 }
@@ -2183,16 +2172,4 @@ bool avdInfo_skinHasOverlay(const char* skinName) {
         return true;
     }
     return false;
-}
-
-/* for api >= S, turns off screen after 30 minutes to save battery
-   b/216165503; leave the older api behavor unchanged for now.
-*/
-
-const char* avdInfo_screen_off_timeout(int apiLevel) {
-    if (apiLevel >= 31) {
-        return "1800000"; // 30 minutes
-    } else {
-        return "2147483647"; // 576 hours
-    }
 }

@@ -27,7 +27,7 @@
 #include "android/base/system/System.h"        // for System, System::Pid
 #include "android/base/testing/TestTempDir.h"  // for TestTempDir
 #include "android/emulation/ConfigDirs.h"      // for ConfigDirs
-#include "android/utils/path.h"
+
 
 #ifndef _WIN32
 #include <sys/wait.h>  // for waitpid
@@ -110,26 +110,14 @@ protected:
 TEST_F(EmulatorAdvertisementTest, cleans_two_files) {
     // PIDs are positive numbers ;-)
     int pid = PID_MAX_LIMIT + 10;
-    std::string hi =
-            pj(mTempDir.path(), "pid_" + std::to_string(pid++) + ".ini");
-    std::string hi2 =
-            pj(mTempDir.path(), "pid_" + std::to_string(pid++) + ".ini");
+    std::string hi = pj(mTempDir.path(), "pid_" + std::to_string(pid++) + ".ini");
+    std::string hi2 = pj(mTempDir.path(), "pid_" + std::to_string(pid++) + ".ini");
     write_hello(hi);
     write_hello(hi2);
     EmulatorAdvertisement testCfg({}, mTempDir.path());
     EXPECT_EQ(2, testCfg.garbageCollect());
 };
 
-TEST_F(EmulatorAdvertisementTest, cleans_two_directories) {
-    // PIDs are positive numbers ;-)
-    int pid = PID_MAX_LIMIT + 10;
-    std::string dir = pj(mTempDir.path(), std::to_string(pid++));
-    std::string dir2 = pj(mTempDir.path(), std::to_string(pid++));
-    path_mkdir_if_needed(dir.c_str(), 0700);
-    path_mkdir_if_needed(dir2.c_str(), 0700);
-    EmulatorAdvertisement testCfg({}, mTempDir.path());
-    EXPECT_EQ(2, testCfg.garbageCollect());
-};
 
 TEST_F(EmulatorAdvertisementTest, writes_a_dictionary) {
     EmulatorAdvertisement testCfg({{"hello", "world"}}, mTempDir.path());
@@ -172,25 +160,6 @@ TEST_F(EmulatorAdvertisementTest, pid_file_is_written) {
     }
 }
 
-// Very flaky on windows/linux.
-TEST_F(EmulatorAdvertisementTest, DISABLED_pid_file_is_discoverd) {
-    auto pid = launchInBackground(mTempDir.path());
-    EXPECT_TRUE(pid);
-    if (pid) {
-        EXPECT_TRUE(waitForPid(mTempDir.path(), *pid));
-
-        // At least one discovery file should be found,.
-        EXPECT_FALSE(
-                EmulatorAdvertisement::discoverRunningEmulators(mTempDir.path())
-                        .empty());
-        System::get()->killProcess(*pid);
-    }
-}
-
-TEST_F(EmulatorAdvertisementTest, no_pid_no_discovery) {
-    EXPECT_TRUE(EmulatorAdvertisement::discoverRunningEmulators(mTempDir.path())
-                        .empty());
-}
 
 TEST_F(EmulatorAdvertisementTest, DISABLED_pid_file_is_cleaned_in_shared_dir) {
     auto pid = launchInBackground();
@@ -198,7 +167,10 @@ TEST_F(EmulatorAdvertisementTest, DISABLED_pid_file_is_cleaned_in_shared_dir) {
     if (pid) {
         EmulatorAdvertisement discovery({});
 
-        // Clean-up all dead processes we know of..
+       TEST_F(EmulatorAdvertisementTest, no_pid_no_discovery) {
+    EXPECT_TRUE(EmulatorAdvertisement::discoverRunningEmulators(mTempDir.path())
+                        .empty());
+} // Clean-up all dead processes we know of..
         discovery.garbageCollect();
 
         EXPECT_TRUE(waitForPid(ConfigDirs::getDiscoveryDirectory(), *pid));

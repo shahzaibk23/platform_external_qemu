@@ -143,21 +143,16 @@ std::string ConfigDirs::getAvdRootDirectory() {
 }
 
 // static
-std::string ConfigDirs::getSdkRootDirectoryByEnv(bool verbose) {
+std::string ConfigDirs::getSdkRootDirectoryByEnv() {
     auto system = System::get();
 
-    if (verbose) {
-        printf("emulator: INFO: checking ANDROID_HOME for valid sdk root...\n");
-    }
+    
     std::string sdkRoot = system->envGet("ANDROID_HOME");
-    if (sdkRoot.size() && isValidSdkRoot(sdkRoot, verbose)) {
+    if (isValidSdkRoot(sdkRoot)) {
         return sdkRoot;
     }
 
-    if (verbose) {
-        printf("emulator: INFO: checking ANDROID_SDK_ROOT for valid sdk "
-               "root...\n");
-    }
+    
     // ANDROID_HOME is not good. Try ANDROID_SDK_ROOT.
     sdkRoot = system->envGet("ANDROID_SDK_ROOT");
     if (sdkRoot.size()) {
@@ -167,17 +162,15 @@ std::string ConfigDirs::getSdkRootDirectoryByEnv(bool verbose) {
             sdkRoot.erase(0, 1);
             sdkRoot.pop_back();
         }
-        if (isValidSdkRoot(sdkRoot, verbose)) {
+        if (isValidSdkRoot(sdkRoot)) {
             return sdkRoot;
         }
-    } else if (verbose) {
-        printf("emulator: WARN: ANDROID_SDK_ROOT is missing.\n");
-    }
+    } 
 
     return std::string();
 }
 
-std::string ConfigDirs::getSdkRootDirectoryByPath(bool verbose) {
+std::string ConfigDirs::getSdkRootDirectoryByPath() {
     auto system = System::get();
 
     auto parts = PathUtils::decompose(system->getLauncherDirectory());
@@ -185,73 +178,45 @@ std::string ConfigDirs::getSdkRootDirectoryByPath(bool verbose) {
     PathUtils::simplifyComponents(&parts);
 
     std::string sdkRoot = PathUtils::recompose(parts);
-    if (verbose) {
-        printf("emulator: INFO: guessed sdk root is %s\n", sdkRoot.c_str());
-    }
-    if (isValidSdkRoot(sdkRoot, verbose)) {
+    
+    if (isValidSdkRoot(sdkRoot)) {
         return sdkRoot;
     }
-    if (verbose) {
-        printf("emulator: WARN: invalid sdk root %s\n", sdkRoot.c_str());
-    }
+    
     return std::string();
 }
 
 // static
-std::string ConfigDirs::getSdkRootDirectory(bool verbose) {
-    std::string sdkRoot = getSdkRootDirectoryByEnv(verbose);
+std::string ConfigDirs::getSdkRootDirectory() {
+    std::string sdkRoot = getSdkRootDirectoryByEnv();
     if (!sdkRoot.empty()) {
         return sdkRoot;
     }
 
-    if (verbose) {
-        printf("emulator: WARN: Cannot find valid sdk root from environment "
-               "variable ANDROID_HOME nor ANDROID_SDK_ROOT,"
-               "Try to infer from emulator's path\n");
-    }
+   
     // Otherwise, infer from the path of the emulator's binary.
-    return getSdkRootDirectoryByPath(verbose);
+    return getSdkRootDirectoryByPath();
 }
 
 // static
-bool ConfigDirs::isValidSdkRoot(std::string rootPath, bool verbose) {
+bool ConfigDirs::isValidSdkRoot(std::string rootPath) {
     if (rootPath.empty()) {
-        if (verbose) {
-            printf("emulator: WARN: empty sdk root\n");
-        }
+        
         return false;
     }
     System* system = System::get();
     if (!system->pathIsDir(rootPath) || !system->pathCanRead(rootPath)) {
-        if (verbose) {
-            if (!system->pathIsDir(rootPath)) {
-                printf("emulator: WARN: %s is not a directory, and canot be "
-                       "sdk root\n",
-                       rootPath.c_str());
-            } else if (!system->pathCanRead(rootPath)) {
-                printf("emulator: WARN: %s is not readable, and canot be sdk "
-                       "root\n",
-                       rootPath.c_str());
-            }
-        }
+        
         return false;
     }
     std::string platformsPath = PathUtils::join(rootPath, "platforms");
     if (!system->pathIsDir(platformsPath)) {
-        if (verbose) {
-            printf("emulator: WARN: platforms subdirectory is missing under "
-                   "%s, please install it\n",
-                   rootPath.c_str());
-        }
+        
         return false;
     }
     std::string platformToolsPath = PathUtils::join(rootPath, "platform-tools");
     if (!system->pathIsDir(platformToolsPath)) {
-        if (verbose) {
-            printf("emulator: WARN: platform-tools subdirectory is missing "
-                   "under %s, please install it\n",
-                   rootPath.c_str());
-        }
+        
         return false;
     }
 

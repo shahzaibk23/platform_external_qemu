@@ -75,8 +75,11 @@ path_getAvdContentPath(const char* avdName)
     }
     AFREE(iniPath);
 
-    // try relative path first
+    avdPath = iniFile_getString(ini, ROOT_ABS_PATH_KEY, NULL);
+
     if (!path_is_dir(avdPath)) {
+        // If the absolute path doesn't match an actual directory, try
+        // the relative path if present.
         const char* relPath = iniFile_getString(ini, ROOT_REL_PATH_KEY, NULL);
         if (relPath != NULL) {
             p = bufprint_config_path(temp, end);
@@ -86,11 +89,6 @@ path_getAvdContentPath(const char* avdName)
                 avdPath = ASTRDUP(temp);
             }
         }
-    }
-
-    // try absolute path second
-    if (!path_is_dir(avdPath)) {
-        avdPath = iniFile_getString(ini, ROOT_ABS_PATH_KEY, NULL);
     }
 
     iniFile_free(ini);
@@ -215,7 +213,6 @@ AvdFlavor propertyFile_getAvdFlavor(const FileData* data) {
     const char* tv_names[] = {"atv"};
     const char* wear_names[] = {"aw", "wear"};
     const char* car_names[] = {"car"};
-    const char* desktop_names[] = {"pc"};
 
     if (IN_PRODUCT_NAME(data, phone_names)) {
         res = AVD_PHONE;
@@ -225,8 +222,6 @@ AvdFlavor propertyFile_getAvdFlavor(const FileData* data) {
         res = AVD_WEAR;
     } else if (IN_PRODUCT_NAME(data, car_names)) {
         res = AVD_ANDROID_AUTO;
-    } else if (IN_PRODUCT_NAME(data, desktop_names)) {
-        res = AVD_DESKTOP;
     }
 
     return res;
@@ -389,18 +384,11 @@ path_getAvdSnapshotPresent( const char* avdName )
     return snapshotPresent;
 }
 
-char* path_getAvdSystemPath(const char* avdName,
-                            const char* sdkRoot,
-                            bool verbose) {
+char*
+path_getAvdSystemPath(const char* avdName,
+                      const char* sdkRoot) {
     char* result = NULL;
     char* avdPath = path_getAvdContentPath(avdName);
-    if (verbose) {
-        printf("emulator: INFO: %s: AVD %s has path %s\n", __func__,
-               avdName ? avdName : "empty", avdPath ? avdPath : "empty");
-        printf("emulator: INFO: %s: trying to check whether %s is a valid sdk "
-               "root\n",
-               __func__, sdkRoot ? sdkRoot : "empty");
-    }
     int nn;
     for (nn = 0; nn < MAX_SEARCH_PATHS; ++nn) {
         char searchKey[32];
@@ -420,20 +408,11 @@ char* path_getAvdSystemPath(const char* avdName,
         free(searchPath);
         if (p >= end || !path_is_dir(temp)) {
             D(" Not a directory: %s", temp);
-            if (verbose) {
-                printf("emulator: WARN: %s: %s is not a valid directory.\n",
-                       __func__, temp);
-            }
             continue;
         }
         D(" Found directory: %s", temp);
         result = ASTRDUP(temp);
         break;
-    }
-    if (verbose && !result) {
-        printf("emulator: WARN: %s: emulator has searched the above paths but "
-               "found no valid sdk root directory.\n",
-               __func__);
     }
     AFREE(avdPath);
     return result;
