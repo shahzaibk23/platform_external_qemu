@@ -118,8 +118,7 @@ static char* getQemuExecutablePath(const char* programPath,
 static void updateLibrarySearchPath(bool isHeadless,
                                     int wantedBitness,
                                     bool useSystemLibs,
-                                    const char* launcherDir,
-                                    const char* gpu);
+                                    const char* launcherDir);
 
 static bool is32bitImageOn64bitRanchuKernel(const char* avdName,
                                              const char* avdArch,
@@ -302,7 +301,6 @@ int main(int argc, char** argv)
     const char* avdArch = NULL;
     const char* engine = NULL;
     const char* sysDir = NULL;
-    const char* gpu = NULL;
     bool doAccelCheck = false;
     bool doListAvds = false;
     bool doListUSB = false;
@@ -319,7 +317,6 @@ int main(int argc, char** argv)
     bool doDeleteTempDir = false;
     bool checkLoadable = false;
     bool use_virtio_console = false;
-    LoggingFlags logFlags = kLogEnableDuplicateFilter;
 
 #ifdef __APPLE__
     if (processIsTranslated()) {
@@ -366,7 +363,6 @@ int main(int argc, char** argv)
             }
         }
     }
-
     if (qemu_top_dir) {
         char mybuf[1024];
         char* c_argv0_dir_name = path_dirname(argv[0]);
@@ -518,7 +514,6 @@ int main(int argc, char** argv)
          }
 
         if (!strcmp(opt,"-gpu") && nn + 1 < argc) {
-            gpu = argv[nn + 1];
             nn++;
             continue;
         }
@@ -621,15 +616,7 @@ int main(int argc, char** argv)
         if (!strcmp(opt, "-check-snapshot-loadable")) {
             checkLoadable = true;
         }
-
-        if (!strcmp(opt, "-log-nofilter")) {
-            logFlags = static_cast<LoggingFlags>(logFlags & ~kLogEnableDuplicateFilter);
-        }
     }
-
-    // Parsing complete, initialize the proper logging config.
-    base_configure_logs(logFlags);
-
     if (checkLoadable) {
         cleanUpAvdContent = false;
     }
@@ -912,7 +899,7 @@ int main(int argc, char** argv)
           }
 #endif
 #if defined(__aarch64__)
-          if (sarch != "arm64" && sarch != "arm") {
+          if (sarch != "arm64") {
               APANIC("Avd's CPU Architecture '%s' is not supported by the QEMU2 emulator on aarch64 host.\n", avdarch);
           }
 #endif
@@ -966,7 +953,7 @@ int main(int argc, char** argv)
      * up by the re-exec'ed emulator
      */
     updateLibrarySearchPath(isHeadless, wantedBitness, useSystemLibs,
-                            progDir.data(), gpu);
+                            progDir.data());
 
     /* We need to find the location of the GLES emulation shared libraries
      * and modify either LD_LIBRARY_PATH or PATH accordingly
@@ -1122,11 +1109,11 @@ static const char* getQemuArch(const char* avdArch, bool force64bitTarget) {
         {"mips", "mipsel"},
         {"mips64", "mips64el"},
         {"mips64", "mips64el"},
+        {"riscv64", "riscv64"},
+        {"rv64imafdc", "riscv64"},
         {"x86","i386"},
         {"x86_64","x86_64"},
         {"x86_64","x86_64"},
-        {"riscv64", "riscv64"},
-        {"riscvimafdc", "riscv64"},
     };
     size_t n;
     for (n = 0; n < ARRAY_SIZE(kQemuArchs); ++n) {
@@ -1209,8 +1196,7 @@ static void appendPreloadLib(const char* fullLibPath) {
 static void updateLibrarySearchPath(bool isHeadless,
                                     int wantedBitness,
                                     bool useSystemLibs,
-                                    const char* launcherDir,
-                                    const char* gpu) {
+                                    const char* launcherDir) {
     const char* libSubDir = (wantedBitness == 64) ? "lib64" : "lib";
     char fullPath[PATH_MAX];
     char* tail = fullPath;
@@ -1227,29 +1213,23 @@ static void updateLibrarySearchPath(bool isHeadless,
     D("Adding library search path: '%s'", fullPath);
     add_library_search_dir(fullPath);
 
-    bool useSwAngle = false;
-#ifdef __APPLE__
-    useSwAngle = strstr(gpu, "swiftshader") != NULL;
-#endif
 
-    if (gpu && (strstr(gpu, "angle") != NULL || useSwAngle)) {
-        bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle");
-        D("Adding library search path: '%s'", fullPath);
-        add_library_search_dir(fullPath);
+    bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle");
+    D("Adding library search path: '%s'", fullPath);
+    add_library_search_dir(fullPath);
 
-        bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle9");
-        D("Adding library search path: '%s'", fullPath);
-        add_library_search_dir(fullPath);
+    bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle9");
+    D("Adding library search path: '%s'", fullPath);
+    add_library_search_dir(fullPath);
 
-        bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle11");
-        D("Adding library search path: '%s'", fullPath);
-        add_library_search_dir(fullPath);
-    } else  {
-        // We add this last so Win32 can resolve LIBGLESV2 from swiftshader for QT5GUI
-        bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_swiftshader");
-        D("Adding library search path: '%s'", fullPath);
-        add_library_search_dir(fullPath);
-    }
+    bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_angle11");
+    D("Adding library search path: '%s'", fullPath);
+    add_library_search_dir(fullPath);
+
+    // We add this last so Win32 can resolve LIBGLESV2 from swiftshader for QT5GUI
+    bufprint(fullPath, fullPath + sizeof(fullPath), "%s" PATH_SEP "%s" PATH_SEP "%s", launcherDir, libSubDir, "gles_swiftshader");
+    D("Adding library search path: '%s'", fullPath);
+    add_library_search_dir(fullPath);
 
 #ifdef __linux__
     if (!useSystemLibs) {
@@ -1301,35 +1281,20 @@ static void updateLibrarySearchPath(bool isHeadless,
 static std::string getAvdSystemPath(const char* avdName, const char* optionalSysPath) {
     std::string result;
     if (!avdName) {
-        printf("emulator: WARN: AVD name is empty\n");
-        fflush(stdout);
         return result;
     }
     if (optionalSysPath) {
         result = optionalSysPath;
-        printf("emulator: INFO: Use user provided system path %s\n",
-               optionalSysPath);
-        fflush(stdout);
         return result;
     }
     char* sdkRootPath = path_getSdkRoot();
     if (!sdkRootPath) {
-        // do a verbose probe to help debug
-        android::ConfigDirs::getSdkRootDirectory(true);
-        printf("emulator: WARN: Cannot find valid sdk root path.\n");
-        fflush(stdout);
         return result;
     }
-
-    char* systemPath = path_getAvdSystemPath(avdName, sdkRootPath, false);
+    char* systemPath = path_getAvdSystemPath(avdName, sdkRootPath);
     if (systemPath != nullptr) {
-        printf("emulator: INFO: Found systemPath %s\n", systemPath);
-        fflush(stdout);
-        result = systemPath;
-        AFREE(systemPath);
-    } else {
-        // debug print why it is not found
-        systemPath = path_getAvdSystemPath(avdName, sdkRootPath, true);
+         result = systemPath;
+         AFREE(systemPath);
     }
     AFREE(sdkRootPath);
     return result;

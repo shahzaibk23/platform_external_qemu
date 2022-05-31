@@ -19,12 +19,14 @@ target_compile_definitions(
 # Make sure we have the qemu dependencies available
 if(BUILDING_FOR_AARCH64)
   add_dependencies(emulator qemu-system-aarch64 qemu-system-aarch64-headless)
-  if(NOT OPTION_MINBUILD)
-    add_dependencies(emulator qemu-system-armel qemu-system-armel-headless)
-  endif()
 elseif(OPTION_MINBUILD)
-  add_dependencies(emulator qemu-system-x86_64 qemu-system-aarch64 qemu-system-riscv64
-                   qemu-system-x86_64-headless qemu-system-aarch64-headless qemu-system-riscv64-headless)
+  add_dependencies(emulator
+                   qemu-system-x86_64
+                   qemu-system-aarch64
+                   qemu-system-riscv64
+                   qemu-system-x86_64-headless
+                   qemu-system-aarch64-headless
+                   qemu-system-riscv64-headless)
 else()
   add_dependencies(
     emulator
@@ -99,10 +101,6 @@ android_target_dependency(emulator windows_msvc-x86_64
                           GLIB2_WINDOWS_DEPENDENCIES)
 android_target_dependency(emulator windows_msvc-x86_64
                           ANGLE_RENDERER_DEPENDENCIES)
-android_target_dependency(emulator darwin-x86_64
-                          ANGLE_RENDERER_DEPENDENCIES)
-android_target_dependency(emulator darwin-aarch64
-                          ANGLE_RENDERER_DEPENDENCIES)
 android_target_dependency(emulator windows_msvc-x86_64 MSVC_DEPENDENCIES)
 # And install them for a release.
 # TODO(b/141205876): prebuilt executables are losing their execute permission on
@@ -119,10 +117,6 @@ android_install_dependency(all SWIFTSHADER_DEPENDENCIES)
 if (NOT LINUX_AARCH64)
   android_install_dependency(all ANGLE_DEPENDENCIES)
 endif()
-if (DARWIN_X86_64 OR DARWIN_AARCH64)
-  android_install_dependency(all ANGLE_RENDERER_DEPENDENCIES)
-endif()
-
 android_install_dependency(all RUNTIME_OS_DEPENDENCIES)
 android_install_dependency_force_exec(all E2FSPROGS_DEPENDENCIES)
 android_install_dependency(all CERT_DEPEPENDENCIES)

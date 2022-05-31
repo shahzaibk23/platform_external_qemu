@@ -34,7 +34,6 @@ enum ModemMessageType {
     MODEM_MSG_DATA_REG,
     MODEM_MSG_VOICE_REG,
     MODEM_MSG_RADIO_STATE,
-    MODEM_MSG_TIME_UPDATE,
 };
 
 struct ModemMessage {
@@ -54,8 +53,6 @@ void update_call(std::string number, int state);
 void set_data_network_type(int type);
 
 void set_signal_strength_profile(int quality);
-
-void update_time();
 
 void set_data_registration(int state);
 

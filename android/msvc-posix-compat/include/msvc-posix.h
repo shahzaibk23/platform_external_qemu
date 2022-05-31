@@ -9,106 +9,73 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#pragma once
+#include "msvc-posix.h"
 
-#define MSVC_POSIX
-// windows.h must come before any of these files, or bad things will happen
-#include <windows.h>
+// TODO(joshuaduong): Support unicode (b/117322783)
+//#include "android/base/system/Win32UnicodeString.h"
 
-#include <direct.h>
-#include <ehstorioctl.h>
-#include <fcntl.h>
 #include <io.h>
-#include <process.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <time.h>
-#include <winsock2.h>
-//#include <basetsd.h>
 
-// From <unistd.h>
-typedef SSIZE_T ssize_t;
-typedef int mode_t;
-#ifdef _WIN64
-typedef int64_t pid_t;
-#else
-typedef int pid_t;
-#endif
-#define STDIN_FILENO _fileno(stdin)
-#define STDOUT_FILENO _fileno(stdout)
-#define STDERR_FILENO _fileno(stderr)
-#define lseek(a, b, c) _lseek(a, b, c)
-#define lseek64 _lseeki64
+#include <stdio.h>
+#include <stdlib.h>
 
-// Need <dirent.h>
+int mkstemp(char* t) {
+    // TODO(joshuaduong): Support unicode (b/117322783)
+    int len = strlen(t) + 1;
+    errno_t err = _mktemp_s(t, len);
 
-// Define for convenience only in mingw. This is
-// convenient for the _access function in Windows.
-#define F_OK 0 /* Check for file existence */
-#define X_OK 1 /* Check for execute permission (not supported in Windows) */
-#define W_OK 2 /* Check for write permission */
-#define R_OK 4 /* Check for read permission */
+    if (err != 0) {
+        return -1;
+    }
 
+    return _sopen(t, _O_RDWR | _O_CREAT | _O_EXCL | _O_BINARY, _SH_DENYRW,
+                  _S_IREAD | _S_IWRITE);
+}
 
-// These functions were deprecated and replaced with ISO C++ conformant ones
-// in MSVC 2017.
-/*
-#define strdup _strdup
-#define mkdir _mkdir
-#define rmdir _rmdir
-#define getcwd _getcwd
-#define getpid _getpid
-#define close _close
-#define open _open
-#define read _read
-#define write _write
-#define creat _creat
-*/
+// From https://msdn.microsoft.com/en-us/library/28d5ce15.aspx
+int asprintf(char** buf, const char* format, ...) {
+    va_list args;
+    int len;
 
-// From <fcntl.h>
-#define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
+    if (buf == NULL) {
+        return -1;
+    }
 
-// From <sys/types.h>
-typedef int64_t off64_t;
+    // retrieve the variable arguments
+    va_start(args, format);
 
-// From <sys/cdefs.h>
-#ifdef __cplusplus
-#define __BEGIN_DECLS extern "C" {
-#define __END_DECLS }
-#else
-#define __BEGIN_DECLS /* empty */
-#define __END_DECLS   /* empty */
-#endif
+    len = _vscprintf(format, args)  // _vscprintf doesn't count
+          + 1;                      // terminating '\0'
 
+    if (len <= 0) {
+        return len;
+    }
 
-typedef  VOID (CALLBACK* SystemTime)(LPFILETIME);
+    *buf = (char*)malloc(len * sizeof(char));
 
-// From <sys/time.h>
-struct timezone {
-    int tz_minuteswest; /* of Greenwich */
-    int tz_dsttime;     /* type of dst correction to apply */
-};
+    vsprintf(*buf, format, args);  // C4996
+    // Note: vsprintf is deprecated; consider using vsprintf_s instead
+    return len;
+}
 
-// From <strings.h>
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
+// From https://msdn.microsoft.com/en-us/library/28d5ce15.aspx
+static int vasprintf(char** buf, const char* format, va_list args) {
+    int len;
 
-// From <stdio.h>
-#define fseeko64 _fseeki64
-#define ftello64 _ftelli64
+    if (buf == NULL) {
+        return -1;
+    }
 
-// From <linux/limits.h>
-#define PATH_MAX MAX_PATH
+    len = _vscprintf(format, args)  // _vscprintf doesn't count
+          + 1;                      // terminating '\0'
 
+    if (len <= 0) {
+        return len;
+    }
 
+    *buf = (char*)malloc(len * sizeof(char));
 
-__BEGIN_DECLS
-
-
-extern SystemTime getSystemTime;
-extern int gettimeofday(struct timeval* tp, struct timezone* tz);
-extern int asprintf(char** buf, const char* format, ...);
-extern int vasprintf(char** buf, const char* format, va_list args);
-extern int mkstemp(char* t);
-
-__END_DECLS
+    vsprintf(*buf, format, args);  // C4996
+    // Note: vsprintf is deprecated; consider using vsprintf_s instead
+    return len;
+}
