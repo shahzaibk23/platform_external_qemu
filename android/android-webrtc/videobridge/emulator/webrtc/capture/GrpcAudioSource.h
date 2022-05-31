@@ -23,7 +23,6 @@
 #include "emulator/webrtc/capture/AudioSource.h"  // for AudioSource
 #include "emulator_controller.grpc.pb.h"          // for EmulatorController
 #include "emulator/webrtc/capture/MediaSource.h"
-#include "android/emulation/control/utils/EmulatorGrcpClient.h"
 
 namespace android {
 namespace emulation {
@@ -35,8 +34,7 @@ class AudioPacket;
 
 namespace emulator {
 namespace webrtc {
-
-using android::emulation::control::EmulatorGrpcClient;
+class EmulatorGrpcClient;
 
 class GrpcAudioSource : public AudioSource {
 public:

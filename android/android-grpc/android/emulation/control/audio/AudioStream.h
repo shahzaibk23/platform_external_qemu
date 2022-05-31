@@ -54,6 +54,8 @@ protected:
     std::streamsize mAudioBufferSize;
 
     friend class AudioStreamCapturer;
+
+private:
     AudioFormat mFormat;
 };
 

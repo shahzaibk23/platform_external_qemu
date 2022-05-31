@@ -1,10 +1,4 @@
 # Let's bring the grpc module.
-cmake_policy(SET CMP0079 NEW)
-
-set(_gRPC_RE2_LIBRARIES re2)
-set(_gRPC_RE2_INCLUDE_DIR "${ANDROID_QEMU2_TOP_DIR}/android/third_party/re2")
-
-add_subdirectory(${ANDROID_QEMU2_TOP_DIR}/../cares cares)
 add_subdirectory(${ANDROID_QEMU2_TOP_DIR}/../grpc/emulator grpc)
 
 if(LINUX_X86_64)
@@ -12,6 +6,7 @@ if(LINUX_X86_64)
   # (b/156635589)
   target_compile_options(grpc PRIVATE -DSO_REUSEPORT=15)
   target_compile_options(grpc_unsecure PRIVATE -DSO_REUSEPORT=15)
+  target_compile_options(grpc_cronet PRIVATE -DSO_REUSEPORT=15)
 endif()
 
 # Add waterfall only for posix, as there are some issues around
@@ -86,7 +81,6 @@ android_add_library(
   SRC # cmake-format: sortable
       ${EMULATOR_GRPC_SRC}
       android/emulation/control/adb/AdbService.cpp
-      android/emulation/control/async/AsyncGrpcStream.cpp
       android/emulation/control/audio/AudioStream.cpp
       android/emulation/control/camera/VirtualSceneCamera.cpp
       android/emulation/control/clipboard/Clipboard.cpp
@@ -100,31 +94,16 @@ android_add_library(
       android/emulation/control/logcat/LogcatParser.cpp
       android/emulation/control/logcat/RingStreambuf.cpp
       android/emulation/control/secure/BasicTokenAuth.cpp
-      android/emulation/control/secure/JwkDirectoryObserver.cpp
-      android/emulation/control/secure/JwtTokenAuth.cpp
       android/emulation/control/snapshot/SnapshotService.cpp
       android/emulation/control/utils/AudioUtils.cpp
-      android/emulation/control/utils/EmulatorGrpcClient.cpp
       android/emulation/control/utils/EventWaiter.cpp
       android/emulation/control/utils/GrpcAndroidLogAdapter.cpp
       android/emulation/control/utils/ScreenshotUtils.cpp
       android/emulation/control/utils/SharedMemoryLibrary.cpp
       android/emulation/control/waterfall/WaterfallFactory.cpp)
 
-target_link_libraries(
-  android-grpc
-  PRIVATE png
-  PUBLIC libprotobuf
-         android-emu
-         android-net
-         grpc++
-         tink::config::tink_config
-         tink::jwt::jwk_set_converter
-         tink::jwt::jwt_public_key_verify
-         tink::jwt::jwt_signature_config
-         tink::jwt::jwt_validator
-         tink::jwt::verified_jwt
-         nlohmann_json::nlohmann_json)
+target_link_libraries(android-grpc PRIVATE png PUBLIC libprotobuf android-emu
+                                                      android-net grpc++)
 target_include_directories(android-grpc PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
                                                ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(android-grpc PRIVATE -Wno-return-type-c-linkage)
@@ -154,51 +133,24 @@ if(NOT WINDOWS_MSVC_X86_64)
   target_link_libraries(android-grpc PRIVATE android-waterfall)
 endif()
 
-# Header only library..
-add_library(android-grpc-headers INTERFACE)
-target_include_directories(android-grpc-headers INTERFACE .)
-android_license(
-  TARGET "android-grpc-headers " LIBNAME None SPDX Apache-2.0 LICENSE Apache-2.0
-  LOCAL "${ANDROID_QEMU2_TOP_DIR}/LICENSES/LICENSE.APACHE2")
-
-# Set of test services.
 protobuf_generate_grpc_cpp(
   SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR} SOURCES test_echo_service.proto
   OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} GENERATED ECHO_SERVICE_GRPC_SRC)
 
-protobuf_generate_grpc_cpp(
-  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR} SOURCES ipc_test_service.proto
-  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} GENERATED IPC_SERVICE_GRPC_SRC)
-
-android_add_library(
-  TARGET android-grpc-test-services
-  NODISTRIBUTE
-  SRC # cmake-format: sortable
-      ${ECHO_SERVICE_GRPC_SRC}
-      ${IPC_SERVICE_GRPC_SRC}
-      android/emulation/control/test/CertificateFactory.cpp
-      android/emulation/control/test/HeartbeatService.cpp
-      android/emulation/control/test/TestEchoService.cpp)
-target_link_libraries(android-grpc-test-services PUBLIC android-grpc grpc++)
-target_include_directories(android-grpc-test-services
-                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
 android_add_test(
   TARGET android-grpc_unittest
   SRC # cmake-format: sortable
+      ${ECHO_SERVICE_GRPC_SRC}
       android/emulation/control/GrpcServices_unittest.cpp
       android/emulation/control/logcat/LogcatParser_unittest.cpp
       android/emulation/control/logcat/RingStreambuf_unittest.cpp
-      android/emulation/control/secure/JwkDirectoryObserver_unittest.cpp
-      android/emulation/control/secure/JwtTokenAuth_unittest.cpp
+      android/emulation/control/test/CertificateFactory.cpp
+      android/emulation/control/test/TestEchoService.cpp
       android/emulation/control/utils/EventWaiter_unittest.cpp
   DARWIN android/emulation/control/interceptor/LoggingInterceptor_unittest.cpp
   LINUX android/emulation/control/interceptor/LoggingInterceptor_unittest.cpp)
-target_link_libraries(
-  android-grpc_unittest
-  PRIVATE android-grpc android-grpc-test-services grpc++
-          tink::jwt::jwt_key_templates tink::jwt::jwt_signature_config
-          gmock_main)
+target_link_libraries(android-grpc_unittest PRIVATE android-grpc grpc++
+                                                    gmock_main)
 android_target_dependency(android-grpc_unittest linux-x86_64
                           TCMALLOC_OS_DEPENDENCIES)
 set_property(TARGET android-grpc_unittest PROPERTY CXX_STANDARD 17)
@@ -228,47 +180,27 @@ android_add_executable(
 target_link_libraries(grpc_benchmark PRIVATE android-grpc android-emu-base
                                              emulator-gbench)
 
+# Add the benchmark
+protobuf_generate_grpc_cpp(
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR} SOURCES ipc_test_service.proto
+  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} GENERATED IPC_SERVICE_GRPC_SRC)
+
 # IPC benchmarks
 android_add_executable(
-  TARGET ipc_benchmark NODISTRIBUTE
+  TARGET ipc_benchmark
+  NODISTRIBUTE
   SRC # cmake-format: sortable
+      ${ECHO_SERVICE_GRPC_SRC} ${IPC_SERVICE_GRPC_SRC}
       android/emulation/control/test/IPC_benchmark.cpp)
 target_link_libraries(ipc_benchmark PRIVATE android-emu emulator-gbench
-                                            android-grpc-test-services)
+                                            android-grpc)
 
 android_add_executable(
   TARGET ipc_reader
   NODISTRIBUTE
   SRC # cmake-format: sortable
+      ${ECHO_SERVICE_GRPC_SRC} ${IPC_SERVICE_GRPC_SRC}
       android/emulation/control/test/IPC_reader.cpp
       android/emulation/control/test/TestEchoService.cpp)
-target_link_libraries(ipc_reader PRIVATE android-emu android-grpc-test-services)
+target_link_libraries(ipc_reader PRIVATE android-emu android-grpc)
 add_dependencies(ipc_benchmark ipc_reader)
-
-# Add the benchmark for streaming screenshots
-android_add_executable(
-  TARGET grpc_stream_screen_benchmark NODISTRIBUTE
-  SRC # cmake-format: sortable
-      android/emulation/control/test/StreamScreenPerf.cpp)
-target_link_libraries(grpc_stream_screen_benchmark PRIVATE android-grpc android-emu-base android-emu emulator-gbench)
-
-# Rootcanal service endpoints.
-if(BLUETOOTH_EMULATION)
-  protobuf_generate_grpc_cpp(
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}
-    SOURCES emulated_bluetooth_packets.proto emulated_bluetooth_vhci.proto
-    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} GENERATED BLUETOOTH_SERVICE_GRPC_SRC)
-
-  android_add_library(
-    TARGET grpc-vhci-forwarder
-    LICENSE Apache-2.0
-    SRC ${BLUETOOTH_SERVICE_GRPC_SRC}
-        android/emulation/bluetooth/HciAsyncDataChannelAdapter.cpp
-        android/emulation/bluetooth/VhciService.cpp)
-
-  target_link_libraries(
-    grpc-vhci-forwarder PRIVATE libbt-rootcanal libbt-rootcanal-qemu
-                                android-grpc)
-  target_include_directories(grpc-vhci-forwarder
-                             PUBLIC . ${CMAKE_CURRENT_BINARY_DIR})
-endif()

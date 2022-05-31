@@ -37,6 +37,7 @@ namespace net {
 class SocketForwarder;
 }  // namespace net
 namespace webrtc {
+class EmulatorGrpcClient;
 class VideoCapturer;
 class VideoTrackReceiver;
 }  // namespace webrtc

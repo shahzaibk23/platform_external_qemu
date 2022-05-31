@@ -46,9 +46,8 @@
 #include "android/base/testing/TestLooper.h"                 // for TestLooper
 #include "android/emulation/control/GrpcServices.h"          // for Emulator...
 #include "android/emulation/control/test/TestEchoService.h"  // for TestEcho...
-#include "android/utils/debug.h"
-#include "ipc_test_service.grpc.pb.h"  // for TestRunner
-#include "ipc_test_service.pb.h"       // for Test
+#include "ipc_test_service.grpc.pb.h"                        // for TestRunner
+#include "ipc_test_service.pb.h"                             // for Test
 
 using namespace android::base;
 using namespace android::emulation::control;
@@ -93,8 +92,7 @@ public:
         ScopedSocket scopedSocket(socket);
         // Surprise! We stop listening on socket accept..
         mServer->startListening();
-        while (socketSendAll(scopedSocket.get(), mData.data(), mData.size()))
-            ;
+        while (socketSendAll(scopedSocket.get(), mData.data(), mData.size()));
         return true;
     }
 
@@ -120,12 +118,8 @@ public:
     Status runTest(ServerContext* context,
                    const Test* request,
                    Test* response) override {
-        // VERBOSE_ENABLE(grpc);  Very noisy!
         // Note: Might not be perfect way of measuring cpu time.
         std::clock_t c_start = std::clock();
-        if (mService) {
-            mService->stop();
-        }
         switch (request->target()) {
             case Test::Nothing:
                 response->set_chksum(request->chksum());
@@ -141,14 +135,6 @@ public:
             case Test::RawSocket:
                 response->set_chksum(prepare_socket(request->size()));
                 response->set_port(mSrs->port());
-                break;
-            case Test::SyncStreamPerf:
-                prepare_sync_heartbeat();
-                response->set_port(mService->port());
-                break;
-            case Test::AsyncStreamPerf:
-                prepare_async_heartbeat();
-                response->set_port(mService->port());
                 break;
             default:
                 LOG(ERROR) << "Unknown test type.";
@@ -212,28 +198,6 @@ private:
                            .withLogging(false)
                            .build();
         return chk;
-    }
-
-    void prepare_sync_heartbeat() {
-        EmulatorControllerService::Builder builder;
-        HeartbeatService* heartBeat = new HeartbeatService();
-        mService = builder.withService(heartBeat)
-                           .withPortRange(0, 1)
-                           .withLogging(false)
-                           .build();
-    }
-
-    void prepare_async_heartbeat() {
-        EmulatorControllerService::Builder builder;
-        AsyncHeartbeatService* heartBeat = new AsyncHeartbeatService();
-        mService = builder.withService(heartBeat)
-                           .withPortRange(0, 1)
-                           .withLogging(false)
-                           .withAsyncServerThreads(8)
-                           .build();
-
-        auto heartBeatHandler = mService->asyncHandler();
-        registerAsyncHeartBeat(heartBeatHandler, heartBeat);
     }
 };
 }  // namespace control

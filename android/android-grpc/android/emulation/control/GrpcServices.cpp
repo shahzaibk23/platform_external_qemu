@@ -19,6 +19,7 @@
 #endif
 #include <assert.h>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/security/server_credentials_impl.h>
 #include <chrono>
 #include <fstream>
 #include <iterator>
@@ -27,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "android/base/files/PathUtils.h"
 #include "android/base/Log.h"
 #include "android/base/sockets/ScopedSocket.h"
 #include "android/base/sockets/SocketUtils.h"
@@ -36,8 +36,10 @@
 #include "android/emulation/control/interceptor/LoggingInterceptor.h"
 #include "android/emulation/control/interceptor/MetricsInterceptor.h"
 #include "android/emulation/control/secure/BasicTokenAuth.h"
-#include "android/emulation/control/secure/JwtTokenAuth.h"
 #include "android/emulation/control/utils/GrpcAndroidLogAdapter.h"
+#include "grpc/grpc_security_constants.h"
+#include "grpcpp/server_builder_impl.h"
+#include "grpcpp/server_impl.h"
 
 namespace android {
 namespace emulation {
@@ -46,36 +48,27 @@ namespace control {
 using Builder = EmulatorControllerService::Builder;
 using namespace android::base;
 using namespace android::control::interceptor;
-using android::base::PathUtils;
 using grpc::ServerBuilder;
 using grpc::ServerCompletionQueue;
 using grpc::Service;
-
-std::ostream& operator<<(
-        std::ostream& os,
-        const EmulatorControllerService::Builder::Authorization& a) {
-    if (a == EmulatorControllerService::Builder::Authorization::None) {
-        os << "none";
-    } else if ((int)a & (int)EmulatorControllerService::Builder::Authorization::
-                                StaticToken) {
-        os << "+token";
-    } else if ((int)a & (int)EmulatorControllerService::Builder::Authorization::
-                                JwtToken) {
-        os << "+jwt";
-    }
-    return os;
-}
 
 // This class owns all the created resources, and is responsible for stopping
 // and properly releasing resources.
 class EmulatorControllerServiceImpl : public EmulatorControllerService {
 public:
-    ~EmulatorControllerServiceImpl() { stop(); }
-
     void stop() override {
         auto deadline = std::chrono::system_clock::now() +
                         std::chrono::milliseconds(500);
         mServer->Shutdown(deadline);
+
+        // Shutdown the completion queues.
+        void* ignored_tag;
+        bool ignored_ok;
+        for (auto& queue : mCompletionQueues) {
+            queue->Shutdown();
+            while (queue->Next(&ignored_tag, &ignored_ok))
+                ;
+        }
     }
 
     EmulatorControllerServiceImpl(
@@ -83,21 +76,28 @@ public:
             std::vector<std::shared_ptr<Service>> services,
             grpc::Server* server,
             std::vector<std::unique_ptr<ServerCompletionQueue>> queue)
-        : mPort(port), mRegisteredServices(services), mServer(server) {
-        mHandler = std::make_unique<AsyncGrpcHandler>(std::move(queue));
-    }
+        : mPort(port),
+          mRegisteredServices(services),
+          mServer(server),
+          mCompletionQueues(std::move(queue)) {}
 
     int port() override { return mPort; }
 
     void wait() override { mServer->Wait(); }
 
     // Returns a new completionQueue if possible.
-    AsyncGrpcHandler* asyncHandler() override { return mHandler.get(); }
+    ServerCompletionQueue* newCompletionQueue() override {
+        if (queueidx == mCompletionQueues.size()) {
+            LOG(ERROR) << "Too many queues requested, no new queues available";
+            return nullptr;
+        }
+        return mCompletionQueues[queueidx++].get();
+    }
 
 private:
-    std::unique_ptr<AsyncGrpcHandler> mHandler;
     std::unique_ptr<grpc::Server> mServer;
     std::vector<std::shared_ptr<Service>> mRegisteredServices;
+    std::vector<std::unique_ptr<ServerCompletionQueue>> mCompletionQueues;
     int mPort;
     int queueidx = 0;
     std::string mCert;
@@ -117,7 +117,7 @@ std::string Builder::readSecrets(const char* fname) {
         mValid = false;
         return "";
     }
-    std::ifstream fstream(PathUtils::asUnicodePath(fname).c_str());
+    std::ifstream fstream(fname);
     auto contents = std::string(std::istreambuf_iterator<char>(fstream),
                                 std::istreambuf_iterator<char>());
 
@@ -159,17 +159,6 @@ Builder& Builder::withSecureService(Service* service) {
 Builder& Builder::withAuthToken(std::string token) {
     mAuthToken = token;
     mValid = !token.empty();
-    mAuthMode = mAuthMode | Authorization::StaticToken;
-    return *this;
-}
-
-Builder& Builder::withJwtAuthDiscoveryDir(std::string jwks,
-                                          std::string jwkLoadedPath) {
-    mJwkPath = jwks;
-    mJwkLoadedPath = jwkLoadedPath;
-    mValid =
-            System::get()->pathExists(jwks) && System::get()->pathCanRead(jwks);
-    mAuthMode = mAuthMode | Authorization::JwtToken;
     return *this;
 }
 
@@ -250,7 +239,7 @@ Builder& Builder::withPortRange(int start, int end) {
     return *this;
 }
 
-Builder& Builder::withAsyncServerThreads(int count) {
+Builder& Builder::withCompletionQueues(int count) {
     mCompletionQueueCount = count;
     return *this;
 }
@@ -301,35 +290,18 @@ std::unique_ptr<EmulatorControllerService> Builder::build() {
         }
     }
 
-    if (!mAuthToken.empty() || !mJwkPath.empty()) {
+    if (!mAuthToken.empty()) {
         if (mSecurity == Security::Insecure) {
             mBindAddress = "[::1]";
             mCredentials = LocalServerCredentials(LOCAL_TCP);
             mSecurity = Security::Local;
-            LOG(WARNING) << "Token/JWT auth requested without tls, restricting "
+            LOG(WARNING) << "Token auth requested without tls, restricting "
                             "access to localhost.";
         }
-
-        std::vector<BasicTokenAuth> protectors;
-        if (!mAuthToken.empty() && !mJwkPath.empty()) {
-            auto anyauth = std::vector<std::unique_ptr<BasicTokenAuth>>();
-            anyauth.emplace_back(std::make_unique<StaticTokenAuth>(mAuthToken));
-            anyauth.emplace_back(
-                    std::make_unique<JwtTokenAuth>(mJwkPath, mJwkLoadedPath));
-            mCredentials->SetAuthMetadataProcessor(
-                    std::make_shared<AnyTokenAuth>(std::move(anyauth)));
-        } else if (!mAuthToken.empty()) {
-            mCredentials->SetAuthMetadataProcessor(
-                    std::make_shared<StaticTokenAuth>(mAuthToken));
-        } else if (!mJwkPath.empty()) {
-            mCredentials->SetAuthMetadataProcessor(
-                    std::make_shared<JwtTokenAuth>(mJwkPath, mJwkLoadedPath));
-        }
-    } else {
-        dwarning(
-                "*** No gRPC protection active, consider launching with the "
-                "-grpc-use-jwt flag.***");
+        mCredentials->SetAuthMetadataProcessor(
+                std::make_shared<StaticTokenAuth>(mAuthToken));
     }
+
     // Translate loopback Ipv4/Ipv6 preference ourselves. gRPC resolver can
     // do it slightly differently than us, leading to unexpected results.
     if (mBindAddress == "[::1]" || mBindAddress == "127.0.0.1" ||
@@ -377,7 +349,8 @@ std::unique_ptr<EmulatorControllerService> Builder::build() {
         return nullptr;
 
     LOG(INFO) << "Started GRPC server at " << server_address.c_str()
-              << ", security: " << mSecurity << ":" << mAuthMode;
+              << ", security: " << mSecurity
+              << (mAuthToken.empty() ? "" : "+token");
     return std::unique_ptr<EmulatorControllerService>(
             new EmulatorControllerServiceImpl(mPort, std::move(mServices),
                                               service.release(),

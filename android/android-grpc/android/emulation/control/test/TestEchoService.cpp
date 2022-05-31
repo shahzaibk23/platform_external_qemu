@@ -14,18 +14,10 @@
 
 #include "android/emulation/control/test/TestEchoService.h"  // for Service
 
-#include <functional>  // for __base
-#include <iostream>    // for operator<<
+#include <grpcpp/grpcpp.h>  // for Status
 
-#include "android/emulation/control/async/AsyncGrpcStream.h"  // for AsyncGr...
-#include "grpcpp/impl/codegen/async_stream.h"                 // for ServerA...
-#include "test_echo_service.pb.h"                             // for Msg
-
-namespace google {
-namespace protobuf {
-class Empty;
-}  // namespace protobuf
-}  // namespace google
+#include "test_echo_service.grpc.pb.h"  // for TestEcho
+#include "test_echo_service.pb.h"       // for Msg
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -36,7 +28,7 @@ namespace control {
 
 Status TestEchoServiceImpl::echo(ServerContext* context,
                                  const Msg* request,
-                                 Msg* response) {
+                                 Msg* response)  {
     response->set_counter(mCounter++);
     response->set_msg(request->msg());
     return Status::OK;
@@ -44,91 +36,13 @@ Status TestEchoServiceImpl::echo(ServerContext* context,
 
 Status TestEchoServiceImpl::data(ServerContext* context,
                                  const ::google::protobuf::Empty* empty,
-                                 Msg* response) {
+                                 Msg* response)  {
     response->set_counter(mCounter++);
     response->set_data(mData.data(), mData.size());
     return Status::OK;
 }
 
-void registerAsyncStreamEcho(AsyncGrpcHandler* handler,
-                             AsyncTestEchoService* testService) {
-    handler->registerConnectionHandler(testService,
-                                       &AsyncTestEchoService::RequeststreamEcho)
-            .withCallback([testService](auto connection) {
-                std::cout << "Received a connection from: "
-                          << connection->peer() << std::endl;
-                connection->setReadCallback([](auto from, auto received) {
-                    std::cout << "Received: " << received.DebugString();
-                    from->write(received);
-                });
-                connection->setCloseCallback([testService](auto connection) {
-                    std::cout << "RequeststreamEcho: " << connection->peer()
-                              << " is "
-                              << (connection->isClosed() ? "completely"
-                                                         : "partially")
-                              << " closed" << std::endl;
-                    testService->plusOne();
-                });
-            });
-}
 
-void registerAsyncAnotherTestEchoService(
-        AsyncGrpcHandler* handler,
-        AsyncAnotherTestEchoService* testService) {
-    handler->registerConnectionHandler(
-                   testService,
-                   &AsyncAnotherTestEchoService::RequestanotherStreamEcho)
-            .withCallback([testService](auto connection) {
-                std::cout << "RequestanotherStreamEcho incoming: "
-                          << connection->peer() << std::endl;
-                connection->setReadCallback([](auto from, auto received) {
-                    std::cout << "RequestanotherStreamEcho received: "
-                              << received.DebugString();
-                    received.set_counter(-received.counter());
-                    from->write(received);
-                });
-                connection->setCloseCallback([testService](auto connection) {
-                    std::cout << "RequestanotherStreamEcho: "
-                              << connection->peer() << " is "
-                              << (connection->isClosed() ? "completely"
-                                                         : "partially")
-                              << " closed" << std::endl;
-                    testService->plusOne();
-                });
-            });
-}
-
-void registerAsyncServerStreamingEchoService(
-        AsyncGrpcHandler* handler,
-        AsyncServerStreamingEchoService* testService) {
-    handler->registerConnectionHandler(
-                   testService,
-                   &AsyncServerStreamingEchoService::RequestserverStreamData)
-            .withCallback([testService](auto connection) {
-                std::cout << "RequestserverStreamData incoming: "
-                          << connection->peer() << std::endl;
-                connection->setReadCallback([](auto from, auto received) {
-                    std::cout << "RequestserverStreamData received: "
-                              << received.DebugString();
-                    Msg reply;
-                    reply.set_msg("Hello!");
-                    for (int i = 0; i < received.counter(); i++) {
-                        reply.set_counter(i + 1);
-                        std::cout << "Writing " << reply.DebugString();
-                        from->write(reply);
-                    }
-                });
-                connection->setCloseCallback([testService](auto connection) {
-                    std::cout
-                            << "RequestserverStreamData: " << connection->peer()
-                            << " is "
-                            << (connection->isClosed() ? "completely"
-                                                       : "partially")
-                            << " closed" << std::endl;
-                    testService->plusOne();
-                });
-            });
-}
 
 }  // namespace control
 }  // namespace emulation

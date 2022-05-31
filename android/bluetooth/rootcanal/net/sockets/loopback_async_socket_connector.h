@@ -25,11 +25,11 @@ class AsyncDataChannel;
 }  // namespace net
 }  // namespace android
 
-namespace rootcanal {
+namespace test_vendor_lib {
 class AsyncManager;
-}  // namespace rootcanal
+}  // namespace test_vendor_lib
 
-using rootcanal::AsyncManager;
+using test_vendor_lib::AsyncManager;
 namespace android {
 namespace net {
 

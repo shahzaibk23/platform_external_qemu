@@ -40,6 +40,7 @@ class TouchEvent;
 
 namespace emulator {
 namespace webrtc {
+class EmulatorGrpcClient;
 class Participant;
 
 using android::base::AsyncSocketServer;

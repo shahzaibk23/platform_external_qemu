@@ -15,9 +15,14 @@
 
 #include <string>
 #include <unordered_map>  // for unordered_map
-#include "android/emulation/control/utils/EmulatorGrcpClient.h"
 
-using android::emulation::control::EmulatorGrpcClient;
+namespace emulator {
+namespace webrtc {
+class EmulatorGrpcClient;
+}  // namespace webrtc
+}  // namespace emulator
+
+using emulator::webrtc::EmulatorGrpcClient;
 using Properties = std::unordered_map<std::string, std::string>;
 
 namespace android {
