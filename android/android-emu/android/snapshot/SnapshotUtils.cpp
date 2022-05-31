@@ -35,11 +35,8 @@
 #include "android/globals.h"
 #include "android/snapshot/PathUtils.h"
 #include "android/snapshot/Snapshot.h"
-#include "android/snapshot/interface.h"
 #include "android/utils/file_io.h"
 #include "android/utils/path.h"
-
-using android::base::PathUtils;
 
 namespace android {
 namespace emulation {
@@ -56,10 +53,8 @@ static void logError(std::string errorMessage,
 
 bool pullSnapshot(const char* snapshotName,
                   std::streambuf* output,
-                  const char* outputDirectory,
                   bool selfContained,
                   FileFormat format,
-                  bool deleteAfterPull,
                   void* opaque,
                   LineConsumerCallback errConsumer) {
     auto snapshot = snapshot::Snapshot::getSnapshotById(snapshotName);
@@ -72,19 +67,13 @@ bool pullSnapshot(const char* snapshotName,
     }
 
     base::Stopwatch sw;
-    std::string tmpdir;
-    auto tmpdir_deleter =
+    auto tmpdir = pj(base::System::get()->getTempDir(), snapshot->name());
+    const auto tmpdir_deleter =
             base::makeCustomScopedPtr(&tmpdir, [](std::string* tmpdir) {
                 // Best effort to cleanup the mess.
-                if (*tmpdir != "") {
-                    path_delete_dir(tmpdir->c_str());
-                }
+                path_delete_dir(tmpdir->c_str());
             });
-    if (format != FileFormat::DIRECTORY) {
-        tmpdir = pj(base::System::get()->getTempDir(), snapshot->name());
-        android_mkdir(tmpdir.data(), 0700);
-    }
-    const char* targetDir = outputDirectory;
+    android_mkdir(tmpdir.data(), 0700);
 
     crashreport::CrashReporter::get()->hangDetector().pause(true);
     // Exports all qcow2 images..
@@ -92,13 +81,39 @@ bool pullSnapshot(const char* snapshotName,
     // Put everything in main thread, to avoid calling export during
     // snapshot operations.
     android::base::ThreadLooper::runOnMainLooperAndWaitForCompletion(
-            [&snapshot, targetDir, tmpdir, &succeed, &sw, format, opaque,
-             &errConsumer, output, deleteAfterPull] {
+            [&snapshot, &tmpdir, &succeed, &sw, format, opaque, &errConsumer,
+             output] {
+                succeed = getConsoleAgents()->vm->snapshotExport(
+                        snapshot->name().data(), tmpdir.data(), opaque,
+                        errConsumer);
                 if (!succeed) {
                     return;
                 }
                 LOG(VERBOSE)
                         << "Exported snapshot in " << sw.restartUs() << " us";
+                // Stream the tmpdir out as a tar.gz..
+
+                std::unique_ptr<std::ostream> stream;
+                std::ostream* streamPtr = nullptr;
+                if (format == TARGZ) {
+                    stream = std::make_unique<base::GzipOutputStream>(output);
+                    streamPtr = stream.get();
+                } else {
+                    stream = std::make_unique<std::ostream>(output);
+                    streamPtr = stream.get();
+                }
+
+                // Use of  a 64 KB  buffer gives good performance (see
+                // performance tests.)
+                base::TarWriter tw(tmpdir, *streamPtr, k64KB);
+                tw.addDirectory(".");
+                if (tw.fail()) {
+                    logError(tw.error_msg(), opaque, errConsumer);
+                    succeed = false;
+                    return;
+                }
+                LOG(VERBOSE)
+                        << "Completed writing in " << sw.restartUs() << " us";
                 // iniFile_saveToFile returns 0 on succeed.
                 succeed = !iniFile_saveToFile(
                         avdInfo_getConfigIni(android_avdInfo),
@@ -125,48 +140,6 @@ bool pullSnapshot(const char* snapshotName,
                              errConsumer);
                     return;
                 }
-
-                if (deleteAfterPull) {
-                    base::PathUtils::move(snapshot->dataDir(), targetDir);
-                } else {
-                    path_copy_dir(targetDir, snapshot->dataDir().data());
-                }
-
-                succeed = getConsoleAgents()->vm->snapshotExport(
-                        snapshot->name().data(),
-                        format == FileFormat::DIRECTORY ? targetDir
-                                                        : tmpdir.c_str(),
-                        opaque, errConsumer);
-
-                if (format == FileFormat::DIRECTORY) {
-                    if (deleteAfterPull) {
-                        androidSnapshot_delete(snapshot->name().data());
-                    }
-                    return;
-                }
-                // Stream the targetDir out as a tar.gz..
-
-                std::unique_ptr<std::ostream> stream;
-                std::ostream* streamPtr = nullptr;
-                if (format == TARGZ) {
-                    stream = std::make_unique<base::GzipOutputStream>(output);
-                    streamPtr = stream.get();
-                } else {
-                    stream = std::make_unique<std::ostream>(output);
-                    streamPtr = stream.get();
-                }
-
-                // Use of  a 64 KB  buffer gives good performance (see
-                // performance tests.)
-                base::TarWriter tw(targetDir, *streamPtr, k64KB);
-                tw.addDirectory(".");
-                if (tw.fail()) {
-                    logError(tw.error_msg(), opaque, errConsumer);
-                    succeed = false;
-                    return;
-                }
-                LOG(VERBOSE)
-                        << "Completed writing in " << sw.restartUs() << " us";
                 // Now add in the metadata.
                 auto entries = base::System::get()->scanDirEntries(
                         snapshot->dataDir(), true);
@@ -182,7 +155,7 @@ bool pullSnapshot(const char* snapshotName,
                     // Use of  a 64 KB  buffer gives good performance (see
                     // performance tests.)
                     std::ifstream ifs(
-                            PathUtils::asUnicodePath(fname).c_str(), std::ios_base::in | std::ios_base::binary);
+                            fname, std::ios_base::in | std::ios_base::binary);
                     ifs.rdbuf()->pubsetbuf(buf, sizeof(buf));
                     LOG(VERBOSE) << "Zipping " << name;
                     if (android_stat(fname.c_str(), &sb) != 0 ||
@@ -198,9 +171,6 @@ bool pullSnapshot(const char* snapshotName,
                 if (tw.fail()) {
                     logError(tw.error_msg(), opaque, errConsumer);
                 }
-                if (deleteAfterPull) {
-                    androidSnapshot_delete(snapshot->name().data());
-                }
             });
 
     crashreport::CrashReporter::get()->hangDetector().pause(false);
@@ -209,12 +179,39 @@ bool pullSnapshot(const char* snapshotName,
 
 bool pushSnapshot(const char* snapshotName,
                   std::istream* input,
-                  const char* inputDirectory,
                   FileFormat format,
                   void* opaque,
                   LineConsumerCallback errConsumer) {
     // Create a temporary directory for the snapshot..
     std::string id = base::Uuid::generate().toString();
+    std::string tmpSnap = snapshot::getSnapshotDir(id.c_str());
+
+    const auto tmpdir_deleter = base::makeCustomScopedPtr(
+            &tmpSnap,
+            [](std::string* tmpSnap) {  // Best effort to cleanup the mess.
+                path_delete_dir(tmpSnap->c_str());
+            });
+
+    std::unique_ptr<base::GzipInputStream> gzipInputStream;
+    std::istream* actualInputStream;
+
+    if (format == TARGZ) {
+        gzipInputStream = std::make_unique<base::GzipInputStream>(*input);
+        actualInputStream = gzipInputStream.get();
+    } else {
+        actualInputStream = input;
+    }
+
+    base::TarReader tr(tmpSnap, *actualInputStream);
+    for (auto entry = tr.first(); tr.good(); entry = tr.next(entry)) {
+        tr.extract(entry);
+    }
+
+    if (tr.fail()) {
+        logError(tr.error_msg(), opaque, errConsumer);
+        return false;
+    }
+
     std::string finalDest = snapshot::getSnapshotDir(snapshotName);
     if (base::System::get()->pathExists(finalDest) &&
         path_delete_dir(finalDest.c_str()) != 0) {
@@ -223,49 +220,11 @@ bool pushSnapshot(const char* snapshotName,
         return false;
     }
 
-    if (format == DIRECTORY) {
-        if (0 != path_copy_dir(finalDest.c_str(), inputDirectory)) {
-            logError(std::string("Failed to copy: ") + inputDirectory +
-                             " --> " + finalDest,
-                     opaque, errConsumer);
-            return false;
-        }
-    } else {
-        std::string tmpSnap = snapshot::getSnapshotDir(id.c_str());
-
-        const auto tmpdir_deleter = base::makeCustomScopedPtr(
-                &tmpSnap,
-                [](std::string* tmpSnap) {  // Best effort to cleanup the mess.
-                    path_delete_dir(tmpSnap->c_str());
-                });
-
-        std::unique_ptr<base::GzipInputStream> gzipInputStream;
-        std::istream* actualInputStream;
-
-        if (format == TARGZ) {
-            gzipInputStream = std::make_unique<base::GzipInputStream>(*input);
-            actualInputStream = gzipInputStream.get();
-        } else {
-            actualInputStream = input;
-        }
-
-        base::TarReader tr(tmpSnap, *actualInputStream);
-        for (auto entry = tr.first(); tr.good(); entry = tr.next(entry)) {
-            tr.extract(entry);
-        }
-
-        if (tr.fail()) {
-            logError(tr.error_msg(), opaque, errConsumer);
-            return false;
-        }
-
-        if (!android::base::PathUtils::move(tmpSnap.c_str(),
-                                            finalDest.c_str())) {
-            logError(std::string("Failed to rename: ") + tmpSnap + " --> " +
-                             finalDest,
-                     opaque, errConsumer);
-            return false;
-        }
+    if (!android::base::PathUtils::move(tmpSnap.c_str(), finalDest.c_str())) {
+        logError(std::string("Failed to rename: ") + tmpSnap + " --> " +
+                         finalDest,
+                 opaque, errConsumer);
+        return false;
     }
 
     // Okay, now we have to fix up (i.e. import) the snapshot

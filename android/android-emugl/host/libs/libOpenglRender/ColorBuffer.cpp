@@ -166,8 +166,8 @@ static bool sGetFormatParameters(GLint* internalFormat,
             return true;
         case GL_LUMINANCE:
             *texFormat = GL_LUMINANCE;
-            *pixelType = GL_UNSIGNED_BYTE;
-            *bytesPerPixel = 1;
+            *pixelType = GL_UNSIGNED_SHORT;
+            *bytesPerPixel = 2;
             *sizedInternalFormat = GL_R8;
             *isBlob = true;
             return true;
@@ -489,7 +489,6 @@ void ColorBuffer::readPixelsYUVCached(int x,
     memset(pixels, 0x00, pixels_size);
     assert(m_yuv_converter.get());
 #endif
-
 
     m_yuv_converter->readPixels((uint8_t*)pixels, pixels_size);
 

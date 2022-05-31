@@ -43,7 +43,7 @@ std::vector<PosterInfo> parsePostersFile(
     const std::string filePath = PathUtils::join(
             System::get()->getLauncherDirectory(), "resources", filename);
 
-    std::ifstream in(PathUtils::asUnicodePath(filePath).c_str());
+    std::ifstream in(filePath);
     if (!in) {
         W("%s: Could not find file '%s'", __FUNCTION__, filename);
         return {};

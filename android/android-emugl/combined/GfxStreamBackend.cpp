@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "android/base/files/MemStream.h"
 #include "android/base/files/PathUtils.h"
 #include "android/base/system/System.h"
@@ -33,7 +32,6 @@
 #include "android/refcount-pipe.h"
 #include "android/snapshot/interface.h"
 #include "android/console.h"
-#include "android/utils/GfxstreamFatalError.h"
 
 #include <fstream>
 #include <string>
@@ -258,6 +256,23 @@ enum BackendFlags {
     GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
 };
 
+// based on VIRGL_RENDERER_USE* and friends
+enum RendererFlags {
+    GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT = 1 << 0,
+    GFXSTREAM_RENDERER_FLAGS_THREAD_SYNC = 1 << 1,
+    GFXSTREAM_RENDERER_FLAGS_USE_GLX_BIT = 1 << 2,
+    GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT = 1 << 3,
+    GFXSTREAM_RENDERER_FLAGS_USE_GLES_BIT = 1 << 4,
+    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5, // for disabling vk
+    GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT = 1 << 6, // control IgnoreHostOpenGLErrors flag
+    GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT = 1 << 7, // Attempt GPU texture decompression
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT = 1 << 8, // enable BPTC texture support if available
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT = 1 << 9, // disables the PlayStoreImage flag
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT = 1 << 10, // enable S3TC texture support if available
+    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20, // for disabling syncfd
+    GFXSTREAM_RENDERER_FLAGS_GUEST_USES_ANGLE = 1 << 21,
+};
+
 // Sets backend flags for different kinds of initialization.
 // Default (and default if not called): flags == 0
 // Needs to be called before |gfxstream_backend_init|.
@@ -445,7 +460,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     auto openglesRenderer = android_getOpenglesRenderer().get();
 
     if (!openglesRenderer) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "No renderer started, fatal";
+        dfatal("%s: no renderer started, fatal", __func__);
+        abort();
     }
 
     address_space_set_vm_operations(getConsoleAgents()->vm);

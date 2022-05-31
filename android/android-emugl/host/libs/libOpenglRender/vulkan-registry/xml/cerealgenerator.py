@@ -195,7 +195,6 @@ class IOStream;
 #include "goldfish_vk_private_defs.h"
 
 #include <log/log.h>
-#include <cstring>
 
 // Stuff we are not going to use but if included,
 // will cause compile errors. These are Android Vulkan
@@ -329,8 +328,6 @@ using DlSymFunc = void* (void*, const char*);
         commonCerealImplIncludesGuest = """
 #include "goldfish_vk_extension_structs_guest.h"
 #include "goldfish_vk_private_defs.h"
-
-#include <cstring>
 """
         countingIncludes = """
 #include "vk_platform_compat.h"
@@ -375,7 +372,6 @@ class BumpPool;
 #include "android/base/BumpPool.h"
 #include "android/base/system/System.h"
 #include "android/base/Tracing.h"
-#include "android/utils/GfxstreamFatalError.h"
 
 #include "IOStream.h"
 #include "emugl/common/feature_control.h"

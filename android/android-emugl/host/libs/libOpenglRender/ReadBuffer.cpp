@@ -15,7 +15,7 @@
 */
 #include "ReadBuffer.h"
 
-#include "emugl/common/logging.h"
+#include "ErrorLog.h"
 
 #include <algorithm>
 

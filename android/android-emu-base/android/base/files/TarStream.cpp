@@ -55,7 +55,6 @@
 #endif
 
 using android::base::System;
-using android::base::PathUtils;
 using PaxMap = std::unordered_map<std::string, std::string>;
 
 namespace android {
@@ -221,7 +220,7 @@ bool TarWriter::addFileEntry(std::string name) {
         return error("Unable to stat " + fname);
     }
 
-    std::ifstream ifs(PathUtils::asUnicodePath(fname).c_str(), std::ios_base::in | std::ios_base::binary);
+    std::ifstream ifs(fname, std::ios_base::in | std::ios_base::binary);
     char readBuffer[mBufferSize];
     if (mBufferSize != 0) {
         ifs.rdbuf()->pubsetbuf(readBuffer, mBufferSize);
@@ -430,7 +429,7 @@ bool TarReader::extract(TarInfo src) {
     int64_t left = src.size, rd = 0;
 
     // Okay, let's create and extract a regular file..
-    std::ofstream ofs(PathUtils::asUnicodePath(fname).c_str(), std::ios_base::out | std::ios_base::binary |
+    std::ofstream ofs(fname, std::ios_base::out | std::ios_base::binary |
                                      std::ios_base::trunc);
 
     // File of 0 length.. we are done!

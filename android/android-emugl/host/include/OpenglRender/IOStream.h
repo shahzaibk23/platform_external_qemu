@@ -15,7 +15,7 @@
 */
 #pragma once
 
-#include "emugl/common/logging.h"
+#include "ErrorLog.h"
 #include "android/base/files/Stream.h"
 
 #include <assert.h>

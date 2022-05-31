@@ -524,7 +524,7 @@ def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
     cgen.stmt("uint64_t readStream = 0")
     cgen.stmt("memcpy(&readStream, *readStreamPtrPtr, sizeof(uint64_t)); *readStreamPtrPtr += sizeof(uint64_t)")
     cgen.stmt("auto hostPtr = m_state->getMappedHostPointer(memory)")
-    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))")
+    cgen.stmt("if (!hostPtr && readStream > 0) abort()")
     cgen.stmt("if (!hostPtr) continue")
     cgen.stmt("uint8_t* targetRange = hostPtr + offset")
     cgen.stmt("memcpy(targetRange, *readStreamPtrPtr, readStream); *readStreamPtrPtr += readStream")
@@ -701,7 +701,6 @@ custom_decodes = {
     "vkQueueWaitIdleAsyncGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueBindSparseAsyncGOOGLE" : emit_global_state_wrapped_decoding,
     "vkGetLinearImageLayoutGOOGLE" : emit_global_state_wrapped_decoding,
-    "vkGetLinearImageLayout2GOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueFlushCommandsGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueCommitDescriptorSetUpdatesGOOGLE" : emit_global_state_wrapped_decoding,
     "vkCollectDescriptorPoolIdsGOOGLE" : emit_global_state_wrapped_decoding,

@@ -1519,12 +1519,6 @@ bool emulator_parseCommonCommandLineOptions(int* p_argc,
         return false;
     }
 
-    base_configure_logs(opts->log_nofilter ? kLogDefaultOptions : kLogEnableDuplicateFilter);
-
-    if (!opts->log_nofilter) {
-        dinfo("Duplicate loglines will be removed, if you wish to see each indiviudal line launch with the -log-nofilter flag.");
-    }
-
     android_cmdLineOptions = opts;
 
     // BUG: 143949261
@@ -1695,29 +1689,6 @@ bool emulator_parseCommonCommandLineOptions(int* p_argc,
     if (avdInfo_initHwConfig(avd, hw, is_qemu2) < 0) {
         derror("could not read hardware configuration ?");
         return false;
-    }
-
-    // Update server-based hw config / feature flags.
-    // Must be done after createAVD,  which sets up critical info needed
-    // by featurecontrol component itself.
-#if (SNAPSHOT_PROFILE > 1)
-    dprint("Starting feature flag application and host hw query with uptime "
-           "%" PRIu64 " ms",
-           get_uptime_ms());
-#endif
-    feature_initialize();
-    feature_update_from_server();
-#if (SNAPSHOT_PROFILE > 1)
-    dprint("Finished feature flag application and host hw query with uptime "
-           "%" PRIu64 " ms",
-           get_uptime_ms());
-#endif
-
-    if (feature_is_enabled(kFeature_Minigbm) &&
-        strcmp(hw->hw_gltransport, "virtio-gpu-asg") &&
-        strcmp(hw->hw_gltransport, "virtio-gpu-pipe")) {
-        str_reset(&hw->hw_gltransport, "virtio-gpu-pipe");
-        D("force gltransport to virtio-gpu-pipe\n");
     }
 
     if (opts->acpi_config != NULL) {

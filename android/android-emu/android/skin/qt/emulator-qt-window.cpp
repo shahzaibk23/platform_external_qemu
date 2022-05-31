@@ -45,9 +45,7 @@
 #include "android/skin/qt/event-serializer.h"
 #include "android/skin/qt/extended-pages/common.h"
 #include "android/skin/qt/extended-pages/multi-display-page.h"
-#include "android/skin/qt/extended-pages/settings-page.h"
 #include "android/skin/qt/extended-pages/snapshot-page.h"
-#include "android/skin/qt/extended-pages/telephony-page.h"
 #include "android/skin/qt/qt-settings.h"
 #include "android/skin/qt/screen-mask.h"
 #include "android/skin/qt/winsys-qt.h"
@@ -62,7 +60,6 @@
 #include "android/utils/x86_cpuid.h"
 #include "android/virtualscene/TextureUtils.h"
 #include "studio_stats.pb.h"
-#include "android_modem_v2.h"
 
 #define DEBUG 1
 
@@ -77,12 +74,7 @@
 #include <QBitmap>
 #include <QCheckBox>
 #include <QCursor>
-#if QT_VERSION >= 0x060000
-#include <QInputDevice>
-#else
 #include <QDesktopWidget>
-#include <QTouchDevice>
-#endif  // QT_VERSION
 #include <QFileDialog>
 #include <QIcon>
 #include <QLabel>
@@ -257,11 +249,7 @@ void SkinSurfaceBitmap::applyPendingTransformations() {
             image = image.mirrored(true, true);
         } else {
             // a simple transformation is still enough here
-#if QT_VERSION >= 0x060000
-            QTransform transform;
-#else
             QMatrix transform;
-#endif
             transform.rotate(pendingRotation * 90);
             image = image.transformed(transform);
         }
@@ -682,7 +670,6 @@ EmulatorQtWindow::EmulatorQtWindow(QWidget* parent)
     }
 
 
-    mPauseAvdWhenMinimized = SettingsPage::getPauseAvdWhenMinimized();
 
     ScreenMask::loadMask();
 
@@ -954,11 +941,6 @@ void EmulatorQtWindow::closeEvent(QCloseEvent* event) {
         mCarClusterWindow->setEnabled(false);
     }
 
-    for (auto const& iter : mMultiDisplayWindow) {
-        if (iter.second != nullptr)
-            iter.second->setEnabled(false);
-    }
-
     saveMultidisplayToConfig();
 
     const bool alreadyClosed = mClosed;
@@ -1022,10 +1004,6 @@ void EmulatorQtWindow::closeEvent(QCloseEvent* event) {
         }
         if (mCarClusterWindow) {
             mCarClusterWindow->hide();
-        }
-        for (auto const& iter : mMultiDisplayWindow) {
-            if (iter.second != nullptr)
-                iter.second->hide();
         }
         mContainer.hide();
         mOverlay.hide();
@@ -1115,7 +1093,6 @@ void EmulatorQtWindow::mouseMoveEvent(QMouseEvent* event) {
     if (android::featurecontrol::isEnabled(
                 android::featurecontrol::VirtioMouse) &&
         !android_cmdLineOptions->no_mouse_reposition) {
-
         // Block all the incoming mouse events if mouse is being moved to
         // center of the screen.
         if (!mMouseRepositioning &&
@@ -1525,14 +1502,6 @@ void EmulatorQtWindow::show() {
 
     QObject::connect(window()->windowHandle(), &QWindow::screenChanged, this,
                      &EmulatorQtWindow::onScreenChanged);
-#if QT_VERSION >= 0x060000
-    QObject::connect(qGuiApp, &QGuiApplication::primaryScreenChanged, this,
-                     &EmulatorQtWindow::onScreenConfigChanged);
-    QObject::connect(qGuiApp, &QGuiApplication::screenAdded,
-            this, &EmulatorQtWindow::onScreenConfigChanged);
-    QObject::connect(qGuiApp, &QGuiApplication::screenRemoved,
-            this, &EmulatorQtWindow::onScreenConfigChanged);
-#else
     // On Mac, the above function won't be triggered when you plug in a new
     // monitor and the OS moves the emulator to the new screen. In such
     // situation, it will trigger screenCountChanged.
@@ -1542,7 +1511,6 @@ void EmulatorQtWindow::show() {
             this, &EmulatorQtWindow::onScreenConfigChanged);
     QObject::connect(qApp->desktop(), &QDesktopWidget::workAreaResized,
             this, &EmulatorQtWindow::onScreenConfigChanged);
-#endif
 }
 
 void EmulatorQtWindow::setOnTop(bool onTop) {
@@ -1571,10 +1539,6 @@ void EmulatorQtWindow::setIgnoreWheelEvent(bool ignore) {
     mIgnoreWheelEvent = ignore;
 }
 
-void EmulatorQtWindow::setPauseAvdWhenMinimized(bool pause) {
-    mPauseAvdWhenMinimized = pause;
-}
-
 void EmulatorQtWindow::showMinimized() {
 #ifndef _WIN32
     // For Mac and Linux, ensure that the window has a frame and
@@ -1601,14 +1565,9 @@ void EmulatorQtWindow::showMinimized() {
 #endif // !_WIN32
     mContainer.showMinimized();
     mWindowIsMinimized = true;
-
-    if (mPauseAvdWhenMinimized) {
-        (*mAdbInterface)->runAdbCommand( {"emu", "avd", "pause"},
-                [this](const android::emulation::OptionalAdbCommandResult&) { ; }, 5000);
-    }
 }
 
-void EmulatorQtWindow::handleTouchPoints(const QTouchEvent& touch, uint32_t displayId) {
+void EmulatorQtWindow::handleTouchPoints(const QTouchEvent& touch) {
     unsigned char nrOfPoints = 0;
     unsigned char lastValidTouchPointIndex = 0;
     for(int i=touch.touchPoints().count()-1;i>=0;--i)
@@ -1660,7 +1619,6 @@ void EmulatorQtWindow::handleTouchPoints(const QTouchEvent& touch, uint32_t disp
             {
                 skin_event->u.multi_touch_point.skip_sync=true;
             }
-            skin_event->u.multi_touch_point.display_id = displayId;
             queueSkinEvent(skin_event);
             if(lasElementFound)
             {
@@ -1675,28 +1633,12 @@ bool EmulatorQtWindow::event(QEvent* ev) {
     if (ev->type() == QEvent::TouchBegin || ev->type() == QEvent::TouchUpdate ||
         ev->type() == QEvent::TouchEnd) {
         QTouchEvent* touchEvent = static_cast<QTouchEvent*>(ev);
-        // b/216383452 Only process multitouch events generated from touch
-        // screen.
-#if QT_VERSION >= 0x060000
-        if (touchEvent->device()->type() == QInputDevice::DeviceType::TouchScreen) {
-#else
-        if (touchEvent->device()->type() == QTouchDevice::QTouchDevice::TouchScreen) {
-#endif
-            handleTouchPoints(*touchEvent);
-            return true;
-        }
+        handleTouchPoints(*touchEvent);
+        return true;
     }
     if (ev->type() == QEvent::WindowActivate && mWindowIsMinimized) {
         mWindowIsMinimized = false;
-        // note: this is intentional, as user could pause the avd throu console
-        // and we want to make the avd usable.
-        if(true) {
-            (*mAdbInterface)->runAdbCommand( {"emu", "avd", "resume"},
-                    [this](const android::emulation::OptionalAdbCommandResult&) { ; }, 5000);
-            (*mAdbInterface)->runAdbCommand( {"shell", "input", "keyevent", "KEYCODE_WAKEUP"},
-                    [this](const android::emulation::OptionalAdbCommandResult&) { ; }, 5000);
-            TelephonyPage::updateModemTime();
-        }
+
 #ifndef _WIN32
         // When we minimized, we re-enabled the window frame (because Mac won't un-minimize
         // a frameless window). Disable the window frame now, if it should be disabled.
@@ -1815,17 +1757,9 @@ void EmulatorQtWindow::slot_getScreenDimensions(QRect* out_rect,
     out_rect->setRect(0, 0, 1920, 1080); // Arbitrary default
 
     D("slot_getScreenDimensions: Getting screen geometry");
-#if QT_VERSION >= 0x060000
-    auto newScreen = window()->windowHandle() ? window()->windowHandle()->screen() : nullptr;
-    if (!newScreen) {
-        D("Can't get screen geometry. Window is off screen.");
-    }
-    QRect rect = newScreen->geometry();
-#else
     QRect rect = ((QApplication*)QApplication::instance())
                          ->desktop()
                          ->screenGeometry();
-#endif
     D("slot_getScreenDimensions: Getting screen geometry (done)");
     out_rect->setX(rect.x());
     out_rect->setY(rect.y());
@@ -1895,17 +1829,6 @@ void EmulatorQtWindow::slot_getFramePos(int* xx,
 void EmulatorQtWindow::slot_isWindowFullyVisible(bool* out_value,
                                                  QSemaphore* semaphore) {
     QSemaphoreReleaser semReleaser(semaphore);
-#if QT_VERSION >= 0x060000
-    auto newScreen = mContainer.window()->windowHandle() ?
-            mContainer.window()->windowHandle()->screen() : nullptr;
-    if (!newScreen) {
-        // Window is not on any screen
-        *out_value = false;
-    } else {
-        QRect screenGeo = newScreen->geometry();
-        *out_value = screenGeo.contains(mContainer.geometry());
-    }
-#else
     QDesktopWidget* desktop =
             ((QApplication*)QApplication::instance())->desktop();
     int screenNum =
@@ -1918,24 +1841,17 @@ void EmulatorQtWindow::slot_isWindowFullyVisible(bool* out_value,
         QRect screenGeo = desktop->screenGeometry(screenNum);
         *out_value = screenGeo.contains(mContainer.geometry());
     }
-#endif
 }
 
 void EmulatorQtWindow::slot_isWindowOffScreen(bool* out_value,
                                               QSemaphore* semaphore) {
     QSemaphoreReleaser semReleaser(semaphore);
-#if QT_VERSION >= 0x060000
-    auto newScreen = mContainer.window()->windowHandle() ?
-            mContainer.window()->windowHandle()->screen() : nullptr;
-    *out_value = (newScreen == nullptr);
-#else
     QDesktopWidget* desktop =
             ((QApplication*)QApplication::instance())->desktop();
     int screenNum =
             desktop->screenNumber(&mContainer);  // Screen holding the app
 
     *out_value = (screenNum < 0);
-#endif  // QT_VERSION
 }
 
 void EmulatorQtWindow::pollEvent(SkinEvent* event,
@@ -2022,10 +1938,8 @@ void EmulatorQtWindow::slot_releaseBitmap(SkinSurface* s,
 
 void EmulatorQtWindow::slot_requestClose(QSemaphore* semaphore) {
     QSemaphoreReleaser semReleaser(semaphore);
-    mToolWindow->shouldClose();
-    if (isMainThreadRunning()) {
-        queueQuitEvent();
-    }
+    crashhandler_exitmode(__FUNCTION__);
+    mContainer.close();
 }
 
 void EmulatorQtWindow::slot_requestUpdate(QRect rect,
@@ -2194,8 +2108,7 @@ void EmulatorQtWindow::onScreenChanged(QScreen* newScreen) {
 }
 
 void EmulatorQtWindow::onScreenConfigChanged() {
-    auto newScreen = window()->windowHandle() ?
-            window()->windowHandle()->screen() : nullptr;
+    auto newScreen = window()->windowHandle()->screen();
     if (newScreen != mCurrentScreen) {
         D("%s: kEventScreenChanged", __FUNCTION__);
         queueSkinEvent(createSkinEvent(kEventScreenChanged));
@@ -2675,21 +2588,11 @@ SkinMouseButtonType EmulatorQtWindow::getSkinMouseButton(
     }
 }
 
-#if QT_VERSION >= 0x060000
-void EmulatorQtWindow::handleMouseEvent(SkinEventType type,
-                                        SkinMouseButtonType button,
-                                        const QPointF& posF,
-                                        const QPointF& gPosF,
-                                        bool skipSync) {
-    QPoint pos((int) posF.x(), (int) posF.y());
-    QPoint gPos((int) gPosF.x(), (int) gPosF.y());
-#else
 void EmulatorQtWindow::handleMouseEvent(SkinEventType type,
                                         SkinMouseButtonType button,
                                         const QPoint& pos,
                                         const QPoint& gPos,
                                         bool skipSync) {
-#endif  // QT_VERSION
     if (type == kEventMouseButtonDown) {
         mToolWindow->reportMouseButtonDown();
     }
@@ -2704,7 +2607,6 @@ void EmulatorQtWindow::handleMouseEvent(SkinEventType type,
 
     skin_event->u.mouse.xrel = pos.x() - mPrevMousePosition.x();
     skin_event->u.mouse.yrel = pos.y() - mPrevMousePosition.y();
-    skin_event->u.mouse.display_id = 0;
     mPrevMousePosition = pos;
 
     queueSkinEvent(skin_event);
@@ -2723,13 +2625,8 @@ void EmulatorQtWindow::handlePenEvent(SkinEventType type,
                 penOrientation(tiltToRotation(event->xTilt(), event->yTilt()));
     skin_event->u.pen.button_pressed =
                     ((event->buttons() & Qt::RightButton) == Qt::RightButton);
-#if QT_VERSION >= 0x060000
-    skin_event->u.pen.rubber_pointer =
-                            (event->pointerType() == QPointingDevice::PointerType::Eraser);
-#else
     skin_event->u.pen.rubber_pointer =
                             (event->pointerType() == QTabletEvent::Eraser);
-#endif  // QT_VERSION
     skin_event->u.pen.x = event->pos().x();
     skin_event->u.pen.y = event->pos().y();
     skin_event->u.pen.x_global = event->globalPos().x();
@@ -3189,42 +3086,24 @@ void EmulatorQtWindow::wheelEvent(QWheelEvent* event) {
     } else if (android::featurecontrol::isEnabled(
                        android::featurecontrol::VirtioMouse)) {
         if (mMouseGrabbed) {
-#if QT_VERSION >= 0x060000
-            handleMouseWheelEvent(event->angleDelta().y() / 8, Qt::Orientation::Vertical);
-            handleMouseWheelEvent(event->angleDelta().x() / 8, Qt::Orientation::Horizontal);
-#else
             handleMouseWheelEvent(event->delta() / 8, event->orientation());
-#endif  // QT_VERSION
         }
     } else {
         if (!mWheelScrollTimer.isActive()) {
-#if QT_VERSION >= 0x060000
-            handleMouseEvent(kEventMouseButtonDown, kMouseButtonLeft,
-                             event->position(), QPointF(0.0, 0.0));
-            mWheelScrollPos = event->position();
-            mWheelScrollTimer.start();
-            mWheelScrollPos.setY(mWheelScrollPos.y() + event->angleDelta().y() / 8);
-            handleMouseEvent(kEventMouseMotion, kMouseButtonLeft, mWheelScrollPos,
-                             QPointF(0.0, 0.0));
-#else
             handleMouseEvent(kEventMouseButtonDown, kMouseButtonLeft,
                              event->pos(), QPoint(0, 0));
             mWheelScrollPos = event->pos();
-            mWheelScrollTimer.start();
-            mWheelScrollPos.setY(mWheelScrollPos.y() + event->delta() / 8);
-            handleMouseEvent(kEventMouseMotion, kMouseButtonLeft, mWheelScrollPos,
-                             QPoint(0, 0));
-#endif  // QT_VERSION
         }
+
+        mWheelScrollTimer.start();
+        mWheelScrollPos.setY(mWheelScrollPos.y() + event->delta() / 8);
+        handleMouseEvent(kEventMouseMotion, kMouseButtonLeft, mWheelScrollPos,
+                         QPoint(0, 0));
     }
 }
 
 void EmulatorQtWindow::wheelScrollTimeout() {
-#if QT_VERSION >= 0x060000
-    handleMouseEvent(kEventMouseButtonUp, kMouseButtonLeft, mWheelScrollPos, QPointF(0.0 ,0.0));
-#else
     handleMouseEvent(kEventMouseButtonUp, kMouseButtonLeft, mWheelScrollPos, QPoint(0,0));
-#endif  // QT_VERSION
 }
 
 void EmulatorQtWindow::checkAdbVersionAndWarn() {
@@ -3536,53 +3415,6 @@ void EmulatorQtWindow::restoreSkin() {
 
 void EmulatorQtWindow::setUIDisplayRegion(int x, int y, int w, int h, bool ignoreOrientation) {
     runOnUiThread([this, x, y, w, h, ignoreOrientation]() {this->resizeAndChangeAspectRatio(x, y, w, h, ignoreOrientation);});
-}
-
-bool EmulatorQtWindow::addMultiDisplayWindow(uint32_t id, bool add, uint32_t w, uint32_t h) {
-    SkinEvent* skin_event = nullptr;
-    if (add) {
-        QRect windowGeo = this->geometry();
-        if (!mBackingSurface) {
-            LOG(ERROR) << "backing surface not ready, cancel window creation";
-            return false;
-        }
-        skin_event = createSkinEvent(kEventAddDisplay);
-        skin_event->u.add_display.width = w;
-        skin_event->u.add_display.height = h;
-        skin_event->u.add_display.id = id;
-        QSize backingSize = mBackingSurface->bitmap->size();
-        float scale = (float)windowGeo.width() / (float)backingSize.width();
-        if (mMultiDisplayWindow[id] == nullptr) {
-            // create qt window for the 1st time.
-            mMultiDisplayWindow[id].reset(new MultiDisplayWidget(w, h, id));
-            char title[16];
-            snprintf(title, 16, "Display %d", id);
-            mMultiDisplayWindow[id]->setWindowTitle(title);
-            QRect geoTool = mToolWindow->geometry();
-            mMultiDisplayWindow[id]->move(geoTool.right() + (mMultiDisplayWindow.size() - 1) * 100,
-                                          geoTool.top());
-        }
-        mMultiDisplayWindow[id]->setMouseTracking(true);
-        mMultiDisplayWindow[id]->setFixedSize(QSize((int)(w * scale), (int)(h * scale)));
-        mMultiDisplayWindow[id]->show();
-    } else {
-        skin_event = createSkinEvent(kEventRemoveDisplay);
-        skin_event->u.remove_display.id = id;
-        auto iter = mMultiDisplayWindow.find(id);
-        if (iter != mMultiDisplayWindow.end()) {
-            mMultiDisplayWindow.erase(iter);
-        }
-    }
-    queueSkinEvent(skin_event);
-    return true;
-}
-
-bool EmulatorQtWindow::paintMultiDisplayWindow(uint32_t id, uint32_t texture) {
-    if (mMultiDisplayWindow[id] == nullptr || mMultiDisplayWindow[id]->isHidden()) {
-        return true;
-    }
-    mMultiDisplayWindow[id]->paintWindow(texture);
-    return true;
 }
 
 bool EmulatorQtWindow::multiDisplayParamValidate(uint32_t id, uint32_t w, uint32_t h,

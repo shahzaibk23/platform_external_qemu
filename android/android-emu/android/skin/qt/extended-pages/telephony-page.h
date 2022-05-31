@@ -44,7 +44,6 @@ public:
     ~TelephonyPage();
 
     static void setTelephonyAgent(const QAndroidTelephonyAgent* agent);
-    static void updateModemTime();
     void eventLauncher(int);
 
 private slots:

@@ -25,7 +25,6 @@
 
 #include "common/goldfish_vk_dispatch.h"
 #include "emugl/common/crash_reporter.h"
-#include "emugl/common/logging.h"
 #include "emugl/common/vm_operations.h"
 
 #include <GLES2/gl2.h>
@@ -382,7 +381,6 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
 
         VK_FORMAT_A2R10G10B10_UINT_PACK32,
         VK_FORMAT_A2R10G10B10_UNORM_PACK32,
-        VK_FORMAT_A2B10G10R10_UNORM_PACK32,
 
         // Compressed texture formats
         VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,
@@ -780,6 +778,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     sVkEmulation->physdev = physdevs[maxScoringIndex];
     sVkEmulation->deviceInfo = deviceInfos[maxScoringIndex];
+
     // Postcondition: sVkEmulation has valid device support info
 
     // Ask about image format support here.
@@ -1852,6 +1851,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     bool readRes = FrameBuffer::getFB()->
         readColorBufferContents(
             colorBufferHandle, &cbNumBytes, nullptr);
+
     if (!readRes) {
         fprintf(stderr, "%s: Failed to read color buffer 0x%x\n",
                 __func__, colorBufferHandle);
@@ -1983,7 +1983,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
             });
         }
     }
-
+        
     vk->vkCmdCopyBufferToImage(
         sVkEmulation->commandBuffer,
         sVkEmulation->staging.buffer,
@@ -2358,6 +2358,11 @@ transformExternalMemoryHandleTypeFlags_tohost(
 
     if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
         res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+        res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
+    }
+
+    if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) {
+        res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA;
         res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
     }
 

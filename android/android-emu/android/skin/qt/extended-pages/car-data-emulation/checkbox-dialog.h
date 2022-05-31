@@ -24,10 +24,10 @@ class QObject;
 class QString;
 class QWidget;
 
-#if QT_VERSION >= 0x060000
-#else
+
+
 template <class T1, class T2> struct QPair;
-#endif  // QT_VERSION
+
 template <typename T> class QSet;
 
 // This CheckboxDialog is for user input for VHAL property whose type is
@@ -39,8 +39,7 @@ public:
     CheckboxDialog(QWidget* parent = 0,
                    std::map<int32_t, QString>* lookupTable = 0,
                    QSet<QString>* checkedTitleSet = 0,
-                   const QString& label = "null",
-                   const QString& tip = nullptr);
+                   const QString& label = "null");
     const std::vector<int32_t>* getVec();
 
 public slots:

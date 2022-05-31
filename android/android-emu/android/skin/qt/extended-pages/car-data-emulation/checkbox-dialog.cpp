@@ -15,7 +15,7 @@
 #include <QCheckBox>           // for QCheckBox
 #include <QDialogButtonBox>    // for QDialogButtonBox
 #include <QGridLayout>         // for QGridLayout
-#include <QLabel>              // for QLabel
+
 #include <QPair>               // for QPair
 #include <QSet>                // for QSet
 #include <cstdint>             // for int32_t
@@ -24,17 +24,17 @@
 class QGridLayout;
 class QString;
 class QWidget;
-#if QT_VERSION >= 0x060000
-#else
+
+
 template <class T1, class T2> struct QPair;
-#endif  // QT_VERSION
+
 template <typename T> class QSet;
 
 CheckboxDialog::CheckboxDialog(QWidget* parent,
                                std::map<int32_t, QString>* lookupTable,
                                QSet<QString>* checkedTitleSet,
-                               const QString& label,
-                               const QString& tip)
+                               const QString& label)
+
     : QDialog(parent) {
 
     for(const auto &detail : *lookupTable){
@@ -51,10 +51,7 @@ CheckboxDialog::CheckboxDialog(QWidget* parent,
 
     QGridLayout* checkboxDialogLayout = new QGridLayout;
     int loc = -1;
-    if (tip != nullptr) {
-        QLabel *tipLabel = new QLabel(tip);
-        checkboxDialogLayout->addWidget(tipLabel, ++loc, 0);
-    }
+    
 
     for(auto &checkbox : mCheckboxsVec){
         checkboxDialogLayout->addWidget(checkbox->first, ++loc, 0);

@@ -210,11 +210,8 @@ void CarRotaryPage::remaskButtons() {
         const QString icon_name = button->property("themeIconName").toString();
         if (!icon_name.isNull()) {
             QPixmap pixmap(":/dark/" + icon_name);
-#if QT_VERSION >= 0x060000
-            button->setMask(QBitmap::fromPixmap(pixmap.mask().scaled(button->size())));
-#else
+
             button->setMask(pixmap.mask().scaled(button->size()));
-#endif  // QT_VERSION
             button->setStyleSheet("border: none;");
         }
     }

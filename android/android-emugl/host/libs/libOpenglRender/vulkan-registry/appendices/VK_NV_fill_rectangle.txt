@@ -1,29 +1,50 @@
-// Copyright (c) 2016-2020 NVIDIA Corporation
-//
-// SPDX-License-Identifier: CC-BY-4.0
-
-include::{generated}/meta/{refprefix}VK_NV_fill_rectangle.txt[]
-
-=== Other Extension Metadata
+include::meta/VK_NV_fragment_coverage_to_color.txt[]
 
 *Last Modified Date*::
-    2017-05-22
+    2017-05-21
 *Contributors*::
   - Jeff Bolz, NVIDIA
 
-=== Description
+This extension allows the fragment coverage value, represented as an integer
+bitmask, to be substituted for a color output being written to a
+single-component color attachment with integer components (e.g.
+ename:VK_FORMAT_R8_UINT).
+The functionality provided by this extension is different from simply
+writing the code:SampleMask fragment shader output, in that the coverage
+value written to the framebuffer is taken after stencil test and depth test,
+as well as after fragment operations such as alpha-to-coverage.
 
-This extension adds a new elink:VkPolygonMode code:enum where a triangle is
-rasterized by computing and filling its axis-aligned screen-space bounding
-box, disregarding the actual triangle edges.
-This can be useful for drawing a rectangle without being split into two
-triangles with an internal edge.
-It is also useful to minimize the number of primitives that need to be
-drawn, particularly for a user interface.
+This functionality may be useful for deferred rendering algorithms, where
+the second pass needs to know which samples belong to which original
+fragments.
 
-include::{generated}/interfaces/VK_NV_fill_rectangle.txt[]
+=== New Object Types
+
+None.
+
+=== New Enum Constants
+
+  * Extending elink:VkStructureType:
+
+  ** ename:VK_STRUCTURE_TYPE_PIPELINE_COVERAGE_TO_COLOR_STATE_CREATE_INFO_NV
+
+=== New Enums
+
+  * elink:VkPipelineCoverageToColorStateCreateFlagsNV
+
+=== New Structures
+
+  * slink:VkPipelineCoverageToColorStateCreateInfoNV
+
+=== New Functions
+
+None.
+
+=== Issues
+
+None.
 
 === Version History
 
-  * Revision 1, 2017-05-22 (Jeff Bolz)
+  * Revision 1, 2017-05-21 (Jeff Bolz)
     - Internal revisions

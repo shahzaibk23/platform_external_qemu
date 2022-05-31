@@ -85,14 +85,10 @@ private slots:
 private:
     std::unique_ptr<Ui::VhalTable> mUi;
 
-    // Map to store vehicle properties configs
-    std::map<int32_t, emulator::VehiclePropConfig> mVHalPropConfigMap;
-
     // This map is to store the property get back from VHAL
     // Key is property name + areaID
-    // Value is PropertyValue
-    std::map<QString, emulator::VehiclePropValue> mVHalPropValuesMap;
-
+    // Value is PropertyDescription
+    std::map<QString, emulator::VehiclePropValue> mVHalpropertyMap;
     QString mSelectedKey;
 
     void initVhalPropertyTableRefreshThread();
@@ -132,16 +128,15 @@ private:
     emulator::EmulatorMessage makeSetPropMsg(int propId, emulator::VehiclePropValue** valueRef,
                                                   int areaId);
     int32_t getUserBoolValue(carpropertyutils::PropertyDescription propDesc,
-                              QString oldValueString, QString tip, bool* pressedOk);
+                              QString oldValueString, bool* pressedOk);
     float getUserFloatValue(carpropertyutils::PropertyDescription propDesc,
-                             QString oldValueString, QString tip, bool* pressedOk);
+                             QString oldValueString, bool* pressedOk);
     QString getUserStringValue(carpropertyutils::PropertyDescription propDesc,
-                             QString oldValueString, QString tip, bool* pressedOk);
+                             QString oldValueString, bool* pressedOk);
     int32_t getUserInt32Value(carpropertyutils::PropertyDescription propDesc,
-                               QString oldValueString, QString tip, bool* pressedOk);
+                               QString oldValueString, bool* pressedOk);
     const std::vector<int32_t>* getUserInt32VecValue(
             carpropertyutils::PropertyDescription propDesc,
             QString oldValueString,
-            QString tip,
             bool* pressedOk);
 };

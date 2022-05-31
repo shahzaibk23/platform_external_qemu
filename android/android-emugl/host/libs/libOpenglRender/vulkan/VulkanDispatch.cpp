@@ -244,16 +244,14 @@ public:
                     success = mVulkanLibs.addLibrary(loaderPath);
                 }
 
-                if (!success) {
+#ifdef __linux__
                 // On Linux, it might not be called libvulkan.so.
                 // Try libvulkan.so.1 if that doesn't work.
-#ifdef __linux__
+                if (!success) {
                     loaderPath = pj(System::get()->getLauncherDirectory(), "lib64", "vulkan", "libvulkan.so.1");
-#elif defined _WIN32
-                    loaderPath = pj(System::get()->getLauncherDirectory(), "lib64", "vulkan", "vulkan-1.dll");
-#endif // __linux__
                     success = mVulkanLibs.addLibrary(loaderPath);
                 }
+#endif // __linux__
 #ifdef __APPLE__
                 // On macOS it is possible that we are using MoltenVK as the
                 // ICD. In that case we need to add MoltenVK libraries to

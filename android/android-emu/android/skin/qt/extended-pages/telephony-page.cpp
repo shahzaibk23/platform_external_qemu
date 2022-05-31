@@ -388,16 +388,6 @@ void TelephonyPage::setTelephonyAgent(const QAndroidTelephonyAgent* agent) {
     sTelephonyAgent = agent;
 }
 
-void TelephonyPage::updateModemTime() {
-    if (!sTelephonyAgent) return;
-
-    AModem modem = sTelephonyAgent->getModem();
-    if (!modem)
-        return;
-
-    amodem_update_time(modem);
-}
-
 void TelephonyPage::eventLauncher(int numActiveCalls) {
     QEvent* newTelephonyEvent =
             new TelephonyEvent(mCustomEventType, numActiveCalls);

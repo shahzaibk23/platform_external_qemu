@@ -259,9 +259,7 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
             }
             mMultiDisplay[displayId].cb = colorBuffer;
             return 0;
-        },
-        .isMultiDisplayWindow = [](){ return false; },
-};
+        }};
 
 static bool sIsFolded = false;
 
@@ -340,9 +338,6 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
                 [](uint32_t id) {
                     DEBUG_LOG(stderr, "updateMultiDisplayPage\n");
                 },
-        .addMultiDisplayWindow =
-                [](uint32_t id, bool add, uint32_t w, uint32_t h) { return true; },
-        .paintMultiDisplayWindow = [](uint32_t id, uint32_t texture) { return true; },
         .getMonitorRect =
                 [](uint32_t* w, uint32_t* h) -> bool {
                     if (w)

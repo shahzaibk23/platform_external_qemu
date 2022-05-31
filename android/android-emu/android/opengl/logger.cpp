@@ -93,16 +93,16 @@ OpenGLLogger::OpenGLLogger() {
         CrashReporter::get()->getDataExchangeDir();
     mFileName = PathUtils::join(data_dir,
                                 "opengl_log.txt");
-    mFileHandle.open(PathUtils::asUnicodePath(mFileName).c_str(), std::ios::app);
+    mFileHandle.open(mFileName, std::ios::app);
     mFineLogFileName = PathUtils::join(data_dir,
                                        "opengl_cxt_log.txt");
-    mFineLogFileHandle.open(PathUtils::asUnicodePath(mFineLogFileName).c_str(), std::ios::app);
+    mFineLogFileHandle.open(mFineLogFileName, std::ios::app);
 #endif
 }
 
 OpenGLLogger::OpenGLLogger(const char* filename) :
     mFileName(filename) {
-    mFileHandle.open(PathUtils::asUnicodePath(mFileName).c_str(), std::ios::app);
+    mFileHandle.open(mFileName, std::ios::app);
 }
 
 void OpenGLLogger::writeCoarse(const char* str) {

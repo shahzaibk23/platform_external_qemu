@@ -1,4 +1,4 @@
-// Copyright (C) 2015 The Android Open Source Project
+// Copyright (C) 2017 The Android Open Source Project
 //
 // This software is licensed under the terms of the GNU General Public
 // License version 2, as published by the Free Software Foundation, and
@@ -8,17 +8,21 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+
 #pragma once
 
-#include <qobjectdefs.h>      // for Q_OBJECT, slots
-#include <QString>            // for QString
-#include <QWidget>            // for QWidget
-#include <initializer_list>   // for initializer_list
-#include <memory>             // for unique_ptr
-#include <utility>            // for pair
+#include <stddef.h>                                      // for size_t
+#include <QByteArrayData>                                // for Q_OBJECT, slots
+#include <QString>                                       // for QString
+#include <QWidget>                                       // for QWidget
+#include <memory>                                        // for shared_ptr
+#include <string>                                        // for string
 
-#include "ui_battery-page.h"  // for BatteryPage
-
+#include "android/avd/BugreportInfo.h"                   // for BugreportInfo
+#include "android/base/StringView.h"                     // for StringView
+#include "android/base/async/RecurrentTask.h"            // for RecurrentTask
+#include "android/emulation/control/adb/AdbInterface.h"  // for AdbCommandPtr
+#include "android/settings-agent.h"                      // for SettingsTheme
 
 namespace android {
 namespace metrics {
@@ -27,32 +31,63 @@ class UiEventTracker;
 }  // namespace android
 
 using android::metrics::UiEventTracker;
-
-class QComboBox;
+class QEvent;
+class QMessageBox;
 class QObject;
-class QWidget;
-struct QAndroidBatteryAgent;
+class QShowEvent;
 
-class BatteryPage : public QWidget {
+namespace Ui {
+class BugreportPage;
+}  // namespace Ui
+
+class BugreportPage : public QWidget {
     Q_OBJECT
 
 public:
-    explicit BatteryPage(QWidget *parent = 0);
+    explicit BugreportPage(QWidget* parent = 0);
+    ~BugreportPage();
+    void setAdbInterface(android::emulation::AdbInterface* adb);
+    void showEvent(QShowEvent* event) override;
+    void updateTheme();
 
-    static void setBatteryAgent(const QAndroidBatteryAgent* agent);
+    struct SavingStates {
+        std::string saveLocation;
+        std::string adbBugreportFilePath;
+        std::string screenshotFilePath;
+        std::string bugreportFolderPath;
+        bool adbBugreportSucceed;
+        bool screenshotSucceed;
+        bool bugreportSavedSucceed;
+    };
 
 private slots:
-    void on_bat_chargerBox_activated(int value);
-    void on_bat_healthBox_activated(int index);
-    void on_bat_levelSlider_valueChanged(int value);
-    void on_bat_statusBox_activated(int index);
+    void on_bug_saveButton_clicked();
+    void on_bug_sendToGoogle_clicked();
+    void on_bug_bugReportCheckBox_clicked();
 
 private:
-    void populateListBox(
-            QComboBox* list,
-            std::initializer_list<std::pair<int, const char*>> associations);
-
-private:
-    std::unique_ptr<Ui::BatteryPage> mUi;
-    std::shared_ptr<UiEventTracker> mDropDownTracker;
+    void refreshContents();
+    void loadAdbBugreport();
+    void loadAdbLogcat();
+    void loadCircularSpinner(SettingsTheme theme);
+    void loadScreenshotImage();
+    bool eventFilter(QObject* object, QEvent* event) override;
+    bool launchIssueTracker();
+    void enableInput(bool enabled);
+    void showSpinningWheelAnimation(bool enabled);
+    bool saveBugReportTo(android::base::StringView location);
+    bool saveToFile(android::base::StringView filePath,
+                    const char* content,
+                    size_t length);
+    std::string generateUniqueBugreportName();
+    android::emulation::AdbInterface* mAdb = nullptr;
+    QMessageBox* mDeviceDetailsDialog;
+    std::unique_ptr<Ui::BugreportPage> mUi;
+    std::shared_ptr<UiEventTracker> mBugTracker;
+    SavingStates mSavingStates;
+    android::avd::BugreportInfo mReportingFields;
+    std::string mReproSteps;
+    android::emulation::AdbCommandPtr mAdbBugreport;
+    android::emulation::AdbCommandPtr mAdbLogcat;
+    android::base::RecurrentTask mTask;
 };

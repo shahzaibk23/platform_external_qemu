@@ -87,7 +87,7 @@ static const char kBackupPatternsFilename[] =
 static bool tryParseFeaturePatternsProtobuf(
         const std::string& filename,
         emulator_features::EmulatorFeaturePatterns* out_patterns) {
-    std::ifstream in(PathUtils::asUnicodePath(filename).c_str(), std::ios::binary);
+    std::ifstream in(filename, std::ios::binary);
 
     if (out_patterns->ParseFromIstream(&in)) {
         D("successfully parsed as binary.");
@@ -155,7 +155,7 @@ public:
 
         {
             std::ofstream outFile(
-                    PathUtils::asUnicodePath(mFilename).c_str(),
+                    mFilename,
                     std::ios_base::binary | std::ios_base::trunc);
 
             if (!outFile) {

@@ -221,7 +221,6 @@ void VirtualSensorsPage::setupHingeSensorUI() {
                 mUi->hinge0Slider->setHidden(false);
             default:;
         }
-        mUi->tabWidget->setCurrentIndex(0);
     }
 }
 
@@ -261,7 +260,6 @@ void VirtualSensorsPage::setupRollableUI() {
                 mUi->roll0Slider->setHidden(false);
             default:;
         }
-        mUi->tabWidget->setCurrentIndex(0);
     }
 }
 

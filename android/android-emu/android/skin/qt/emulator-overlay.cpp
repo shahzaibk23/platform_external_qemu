@@ -15,11 +15,11 @@
 #include "android/skin/qt/emulator-qt-window.h"
 #include "android/skin/qt/tool-window.h"
 
-#if QT_VERSION >= 0x060000
-#include <QWindow>
-#else
+
+
+
 #include <QDesktopWidget>
-#endif  // QT_VERSION
+
 
 // The RGB values for the "resize" rectangle
 #define RESIZE_RGB 0x01, 0xBE, 0xA4
@@ -333,14 +333,14 @@ void EmulatorOverlay::showForMultitouch(bool centerTouches,
 
 void EmulatorOverlay::showForResize(int whichCorner) {
     QRect screenGeo;
-#if QT_VERSION >= 0x060000
-    auto newScreen = window()->windowHandle() ? window()->windowHandle()->screen() : nullptr;
-    if (!newScreen) {
-        // No active screen!
-        return;
-    }
-    screenGeo = newScreen->geometry();
-#else
+
+
+
+
+
+
+
+
     QDesktopWidget* desktop = ((QApplication*)QApplication::instance())->desktop();
     int screenNum = desktop->screenNumber(mContainer);  // Screen holding the app
 
@@ -349,7 +349,6 @@ void EmulatorOverlay::showForResize(int whichCorner) {
         return;
     }
     screenGeo = desktop->screenGeometry(screenNum);
-#endif  // QT_VERSION
 
     // Set this widget to the full screen
     setGeometry(screenGeo);

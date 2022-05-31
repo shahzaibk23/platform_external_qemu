@@ -16,10 +16,7 @@
 #include <qstring.h>
 #include <QApplication>
 #include <QCloseEvent>
-#if QT_VERSION >= 0x060000
-#else
 #include <QDesktopWidget>
-#endif  // QT_VERSION
 #include <QLayoutItem>
 #include <QList>
 #include <QPushButton>
@@ -78,10 +75,7 @@
 
 class QApplication;
 class QCloseEvent;
-#if QT_VERSION >= 0x060000
-#else
 class QDesktopWidget;
-#endif  // QT_VERSION
 class QKeyEvent;
 class QPushButton;
 class QShowEvent;
@@ -155,9 +149,6 @@ ExtendedWindow::ExtendedWindow(EmulatorQtWindow* eW, ToolWindow* tW)
 
     connect(mExtendedUi->settingsPage, SIGNAL(disableMouseWheelChanged(bool)),
         this, SLOT(disableMouseWheel(bool)));
-
-    connect(mExtendedUi->settingsPage, SIGNAL(pauseAvdWhenMinimizedChanged(bool)),
-        this, SLOT(pauseAvdWhenMinimized(bool)));
 
     connect(
         mExtendedUi->settingsPage, SIGNAL(enableClipboardSharingChanged(bool)),
@@ -345,8 +336,6 @@ ExtendedWindow::ExtendedWindow(EmulatorQtWindow* eW, ToolWindow* tW)
     const auto enableClipboardSharing =
             settings.value(Ui::Settings::CLIPBOARD_SHARING, true).toBool();
     mToolWindow->switchClipboardSharing(enableClipboardSharing);
-
-    mEmulatorWindow->setPauseAvdWhenMinimized(SettingsPage::getPauseAvdWhenMinimized());
 }
 
 ExtendedWindow::~ExtendedWindow() {
@@ -446,14 +435,11 @@ void ExtendedWindow::show() {
 
     // Verify that the extended pane is fully visible (otherwise it may be
     // impossible for the user to move it)
-#if QT_VERSION >= 0x060000
-    QRect screenGeo = this->screen()->geometry();
-#else
     QDesktopWidget *desktop = static_cast<QApplication*>(
                                      QApplication::instance() )->desktop();
     int screenNum = desktop->screenNumber(this); // Screen holding most of this
+
     QRect screenGeo = desktop->screenGeometry(screenNum);
-#endif  // QT_VERSION
     QRect myGeo = geometry();
 
     bool moved = false;
@@ -620,10 +606,6 @@ void ExtendedWindow::switchToTheme(SettingsTheme theme) {
 
 void ExtendedWindow::disableMouseWheel(bool disabled) {
     mEmulatorWindow->setIgnoreWheelEvent(disabled);
-}
-
-void ExtendedWindow::pauseAvdWhenMinimized(bool pause) {
-    mEmulatorWindow->setPauseAvdWhenMinimized(pause);
 }
 
 void ExtendedWindow::showEvent(QShowEvent* e) {

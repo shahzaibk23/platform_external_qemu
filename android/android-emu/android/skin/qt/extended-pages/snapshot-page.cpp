@@ -814,7 +814,6 @@ void SnapshotPage::updateAfterSelectionChanged() {
 
         if (theItem->isValid()) {
             selectedItemStatus = SelectionStatus::Valid;
-            QLocale locale;
             selectionInfoString =
                       tr("<big><b>%1</b></big><br>"
                          "%2, captured %3<br>"
@@ -823,7 +822,7 @@ void SnapshotPage::updateAfterSelectionChanged() {
                               .arg(logicalName,
                                    formattedSize(snapSize),
                                    theItem->dateTime().isValid() ?
-                                       locale.toString(theItem->dateTime(), QLocale::FormatType::ShortFormat) :
+                                       theItem->dateTime().toString(Qt::SystemLocaleShortDate) :
                                        tr("(unknown)"),
                                    simpleName,
                                    descriptionString);
@@ -1597,7 +1596,7 @@ void SnapshotPage::writeProtobuf(const QString& fileName,
     std::string protoFileName = PathUtils::join(getSnapshotBaseDir().c_str(),
                                                 fileName.toStdString().c_str(),
                                                 android::snapshot::kSnapshotProtobufName);
-    std::ofstream outStream(PathUtils::asUnicodePath(protoFileName).c_str(), std::ofstream::binary);
+    std::ofstream outStream(protoFileName.c_str(), std::ofstream::binary);
 
     protobuf->SerializeToOstream(&outStream);
 }

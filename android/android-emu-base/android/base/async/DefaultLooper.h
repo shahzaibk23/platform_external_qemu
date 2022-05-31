@@ -11,19 +11,17 @@
 
 #pragma once
 
-#include <list>                         // for list<>::iterator, list
-#include <memory>                       // for unique_ptr
-#include <mutex>                        // for mutex
-#include <unordered_map>                // for unordered_map
-#include <unordered_set>                // for unordered_set
+#include "android/base/async/Looper.h"
+#include "android/base/sockets/SocketWaiter.h"
 
-#include "android/base/StringView.h"    // for StringView
-#include "android/base/async/Looper.h"  // for Looper::ClockType, Looper
+#include <list>
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace android {
 namespace base {
-class SocketWaiter;
-class Stream;
 
 // Default looper implementation based on select(). To make sure all timers and
 // FD watches execute, run its runWithDeadlineMs() explicitly.
@@ -195,7 +193,6 @@ protected:
 
     using TaskSet = std::unordered_set<Task*>;
     TaskSet mScheduledTasks;
-    std::mutex mScheduledTasksAccess;
 
     bool mForcedExit = false;
 };

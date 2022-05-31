@@ -2356,7 +2356,7 @@ amodem_addPhysChanCfgUpdate( AModem  modem )
  * separator, so use a column (:) instead, the Java parsing code won't see a difference
  *
  */
-void
+static void
 amodem_addTimeUpdate( AModem  modem )
 {
     time_t       now = time(NULL);

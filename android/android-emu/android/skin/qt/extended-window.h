@@ -84,7 +84,6 @@ private slots:
     void switchOnTop(bool isOntop);
     void switchToTheme(SettingsTheme theme);
     void disableMouseWheel(bool disabled);
-    void pauseAvdWhenMinimized(bool pause);
     void showMacroRecordPage();
     void hideRotationButtons();
 

@@ -23,6 +23,8 @@
 #include "emugl/common/logging.h"
 #include "emugl/common/shared_library.h"
 
+#include "OpenglCodecCommon/ErrorLog.h"
+
 #ifdef __linux__
 #include <GL/glx.h>
 #elif defined(WIN32)
@@ -183,15 +185,6 @@ void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib) {
     }
     if (version >= GLES_3_1) {
         LIST_GLES31_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC)
-    }
-
-    // On Mac, ANGLE loads a bad glGetTexImage. (No it is not the dummy.)
-    // Overwrite it.
-    void* _glGetTexImageANGLE = (void*)getGLFuncAddress(
-        "glGetTexImageANGLE", glLib);
-    if (_glGetTexImageANGLE) {
-        GL_FUNC_NAME(glGetTexImage) =
-            (__typeof__(GL_FUNC_NAME(glGetTexImage)))_glGetTexImageANGLE;
     }
 
     m_isLoaded = true;

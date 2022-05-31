@@ -300,26 +300,26 @@ static void _hwSensorClient_sanitizeSensorString(char* string, int maxlen) {
 
 static void serializeValue_float(Sensor* sensor,
                                  const char* format,
-                                 float value, long measurement_id) {
+                                 float value) {
     sensor->serialized.length =
             snprintf(sensor->serialized.value, sizeof(sensor->serialized.value),
-                     format, value, measurement_id);
+                     format, value);
 }
 
 static void serializeValue_vec3(Sensor* sensor,
                                 const char* format,
-                                vec3 value, long measurement_id) {
+                                vec3 value) {
     sensor->serialized.length =
             snprintf(sensor->serialized.value, sizeof(sensor->serialized.value),
-                     format, value.x, value.y, value.z, measurement_id);
+                     format, value.x, value.y, value.z);
 }
 
 static void serializeValue_vec4(Sensor* sensor,
                                 const char* format,
-                                vec4 value, long measurement_id) {
+                                vec4 value) {
     sensor->serialized.length =
             snprintf(sensor->serialized.value, sizeof(sensor->serialized.value),
-                     format, value.x, value.y, value.z, value.w, measurement_id);
+                     format, value.x, value.y, value.z, value.w);
 }
 
 // a function to serialize the sensor value based on its ID
@@ -337,8 +337,7 @@ static void serializeSensorValue(PhysicalModel* physical_model,
         const v current_value =                                        \
                 GET_FUNCTION_NAME(z)(physical_model, &measurement_id); \
         if (measurement_id != sensor->serialized.measurement_id) {     \
-            SERIALIZE_VALUE_NAME(v)(sensor, w":%ld", current_value,    \
-            measurement_id);                                           \
+            SERIALIZE_VALUE_NAME(v)(sensor, w, current_value);         \
         }                                                              \
         break;                                                         \
     }

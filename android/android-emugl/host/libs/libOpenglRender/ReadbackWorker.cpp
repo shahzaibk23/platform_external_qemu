@@ -168,10 +168,7 @@ void ReadbackWorker::flushPipeline(uint32_t displayId) {
 
     // This is not called from a renderthread, so let's activate
     // the context.
-    if (EGL_FALSE == s_egl.eglMakeCurrent(mFb->getDisplay(), mSurf, mSurf, mContext)) {
-            LOG(ERROR) << "ReadbackWorker cannot set normal context, skip flushing.";
-            return;
-    }
+    s_egl.eglMakeCurrent(mFb->getDisplay(), mFlushSurf, mFlushSurf, mFlushContext);
 
     // We now copy the last frame into slot 4, where no other thread
     // ever writes.

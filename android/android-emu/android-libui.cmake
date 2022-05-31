@@ -87,8 +87,6 @@ set(ANDROID_LIBUI_SRC_FILES
     android/skin/qt/car-cluster-window.cpp
     android/skin/qt/common-controls/cc-list-item.cpp
     android/skin/qt/device-3d-widget.cpp
-    android/skin/qt/multi-display-widget.cpp
-    android/skin/qt/mouse-event-handler.cpp
     android/skin/qt/editable-slider-widget.cpp
     android/skin/qt/emulator-container.cpp
     android/skin/qt/emulator-no-qt-no-window.cpp
@@ -229,7 +227,6 @@ set(ANDROID_SKIN_QT_MOC_SRC_FILES
     android/skin/qt/angle-input-widget.h
     android/skin/qt/common-controls/cc-list-item.h
     android/skin/qt/device-3d-widget.h
-    android/skin/qt/multi-display-widget.h
     android/skin/qt/editable-slider-widget.h
     android/skin/qt/emulator-container.h
     android/skin/qt/emulator-no-qt-no-window.h
@@ -351,22 +348,13 @@ android_add_library(
   LINUX ${emulator-libui_linux-x86_64_src}
   MSVC ${emulator-libui_windows_msvc-x86_64_src})
 
-if (DARWIN_AARCH64 AND QTWEBENGINE)
-  set(QT_MAJOR_VERSION 6)
-else()
-  set(QT_MAJOR_VERSION 5)
-endif()
-
 # TODO: Remove this and the "USE_WEBENGINE" defines once we have: --no-window
 # mode has no dependency on Qt
 if(QTWEBENGINE)
   target_compile_definitions(emulator-libui PRIVATE "-DUSE_WEBENGINE")
   target_link_libraries(
-    emulator-libui PRIVATE Qt${QT_MAJOR_VERSION}::Network Qt${QT_MAJOR_VERSION}::WebEngineWidgets Qt${QT_MAJOR_VERSION}::WebChannel
-                           Qt${QT_MAJOR_VERSION}::WebSockets)
-  if(QT_MAJOR_VERSION EQUAL 6)
-    target_link_libraries(emulator-libui PRIVATE Qt${QT_MAJOR_VERSION}::WebEngineCore)
-  endif()
+    emulator-libui PRIVATE Qt5::Network Qt5::WebEngineWidgets Qt5::WebChannel
+                           Qt5::WebSockets)
 endif()
 
 if(NOT BUILDING_FOR_AARCH64)
@@ -400,18 +388,13 @@ target_link_libraries(
   PRIVATE android-emu
           emulator-libyuv
           FFMPEG::FFMPEG
-          Qt${QT_MAJOR_VERSION}::Core
-          Qt${QT_MAJOR_VERSION}::Widgets
-          Qt${QT_MAJOR_VERSION}::Gui
-          Qt${QT_MAJOR_VERSION}::Svg
+          Qt5::Core
+          Qt5::Widgets
+          Qt5::Gui
+          Qt5::Svg
           zlib
           android-hw-config)
 
-if (QT_MAJOR_VERSION EQUAL 6)
-  target_link_libraries(
-    emulator-libui
-    PRIVATE Qt${QT_MAJOR_VERSION}::SvgWidgets)
-endif()
 # gl-widget.cpp needs to call XInitThreads() directly to work around a Qt bug.
 # This implies a direct dependency to libX11.so
 android_target_link_libraries(emulator-libui linux-x86_64 PRIVATE -lX11)
@@ -468,6 +451,10 @@ if(NOT LINUX_AARCH64)
                             QT5_SHARED_DEPENDENCIES)
   android_target_properties(emulator-libui_unittests all
                             "${QT5_SHARED_PROPERTIES}")
+
+  # Make sure we disable rtti in gtest
+  target_compile_definitions(emulator-libui_unittests
+                             PRIVATE -DGTEST_HAS_RTTI=0)
 
   target_link_libraries(
     emulator-libui_unittests PRIVATE emulator-libui android-emu FFMPEG::FFMPEG

@@ -13,10 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#import <QuartzCore/CALayer.h>
-#import <QuartzCore/CAMetalLayer.h>
-
-
 #include "NativeSubWindow.h"
 #include <Cocoa/Cocoa.h>
 
@@ -32,16 +28,6 @@
 
   - (BOOL)isOpaque {
       return YES;
-  }
-
-  + (Class) layerClass {
-    return [CAMetalLayer class];
-  }
-
-  - (CALayer *)makeBackingLayer {
-    CALayer * layer = [CAMetalLayer layer];
-    [layer setContentsScale:2.0f]; // Required for ANGLE backend
-    return layer;
   }
 
 @end
@@ -65,17 +51,16 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
     NSRect contentRect = NSMakeRect(x, cocoa_y, width, height);
 
     NSView *glView = [[EmuGLView alloc] initWithFrame:contentRect];
-    if (!glView) {
-        return NULL;
+    if (glView) {
+        [glView setWantsBestResolutionOpenGLSurface:YES];
+        [[win contentView] addSubview:glView];
+        [win makeKeyAndOrderFront:nil];
+        if (hideWindow) {
+            [glView setHidden:YES];
+        }
     }
-    [glView setWantsBestResolutionOpenGLSurface:YES];
-    [glView setWantsLayer:YES];
-    [[win contentView] addSubview:glView];
-    [win makeKeyAndOrderFront:nil];
-    if (hideWindow) {
-        [glView setHidden:YES];
-    }
-    return (EGLNativeWindowType)(glView);
+
+    return (EGLNativeWindowType)glView;
 }
 
 void destroySubWindow(EGLNativeWindowType win) {

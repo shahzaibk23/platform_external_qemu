@@ -19,10 +19,7 @@
 #include <stddef.h>                                 // for NULL
 #include <QAbstractButton>                          // for QAbstractButton
 #include <QBitmap>                                  // for QBitmap
-#if QT_VERSION >= 0x060000
-#else
 #include <QDesktopWidget>                           // for QDesktopWidget
-#endif
 #include <QEvent>                                   // for QEvent
 #include <QHash>                                    // for QHash
 #include <QIcon>                                    // for QIcon
@@ -262,11 +259,7 @@ void TvRemotePage::remaskButtons() {
 
         if (!icon_name.isNull()) {
             QPixmap pixmap(":/light/" + icon_name);
-#if QT_VERSION >= 0x060000
-            button->setMask(QBitmap::fromPixmap(pixmap.mask().scaled(button->size())));
-#else
             button->setMask(pixmap.mask().scaled(button->size()));
-#endif  // QT_VERSION
             button->setStyleSheet("border: none;");
         }
     }

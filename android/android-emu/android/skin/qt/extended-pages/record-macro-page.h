@@ -15,11 +15,7 @@
 #include <stdint.h>                                 // for uint64_t, uint32_t
 #include <QItemSelection>                           // for QItemSelection
 #include <QString>                                  // for QString
-#if QT_VERSION >= 0x060000
-#include <QElapsedTimer>
-#else
 #include <QTime>                                    // for QTime
-#endif  // QT_VERSION
 #include <QTimer>                                   // for QTimer
 #include <QWidget>                                  // for QWidget
 #include <memory>                                   // for unique_ptr
@@ -155,11 +151,7 @@ private:
     // session ends.
     uint64_t mReportWindowStartUs = 0;
     uint32_t mReportWindowCount = 0;
-#if QT_VERSION >= 0x060000
-    QElapsedTimer mElapsedTimeTimer;
-#else
     QTime mElapsedTimeTimer;
-#endif  // QT_VERSION
 
     struct AutomationMetrics {
         uint64_t totalDurationMs = 0;

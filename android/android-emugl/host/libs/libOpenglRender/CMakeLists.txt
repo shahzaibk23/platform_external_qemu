@@ -31,7 +31,7 @@ android_add_library(
 if(LINUX)
   android_target_include_directories(OSWindow linux PUBLIC ${X11_XCB_INCLUDE_DIRS})
   android_target_link_libraries(OSWindow linux PUBLIC "-lX11" "-lrt"
-                                                      X11_XCB::X11_XCB
+                                                      ${X11_XCB_LIBRARIES}
                                                       android-emu-shared)
 endif()
 
@@ -123,7 +123,6 @@ target_link_libraries(
          OpenglRender_vulkan
          OpenGLESDispatch
          GLSnapshot)
-android_target_link_libraries(OpenglRender darwin PUBLIC "-framework AppKit -framework QuartzCore")
 target_compile_definitions(OpenglRender PRIVATE -DVK_ANDROID_native_buffer)
 android_target_compile_definitions(OpenglRender windows PRIVATE
                                    -DVK_USE_PLATFORM_WIN32_KHR)

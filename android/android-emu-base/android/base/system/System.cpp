@@ -2075,7 +2075,7 @@ bool System::pathCanExecInternal(StringView path) {
 // static
 int System::pathOpenInternal(const char *filename, int oflag, int perm) {
 #ifdef _WIN32
-    return _wopen(win32Path(filename).c_str(), oflag, perm);
+    return _wopen(win32Path(filename).c_str(), GetWin32Mode(oflag), perm);
 #else   // !_WIN32
     return ::open(filename, oflag, perm);
 #endif  // !_WIN32
@@ -2086,12 +2086,7 @@ bool System::deleteFileInternal(StringView path) {
         return false;
     }
 
-#ifdef _WIN32
-    Win32UnicodeString path_unicode(path);
-    int remove_res = _wremove(path_unicode.c_str());
-#else
     int remove_res = remove(c_str(path));
-#endif
 
 #ifdef _WIN32
     if (remove_res < 0) {
@@ -2099,7 +2094,7 @@ bool System::deleteFileInternal(StringView path) {
         // on the first try.
         // Sleep a little bit and try again here.
         System::get()->sleepMs(1);
-        remove_res = _wremove(path_unicode.c_str());
+        remove_res = remove(c_str(path));
     }
 #endif
 

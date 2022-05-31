@@ -20,6 +20,7 @@
 #include "android/utils/debug.h"
 
 #include "emugl/common/logging.h"
+#include "ErrorLog.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 
@@ -226,8 +227,8 @@ RenderChannelPtr RendererImpl::createRenderChannel(
             mLoaderRenderThread.reset();
         }
 
-        GL_LOG("Started new RenderThread (total %" PRIu64 ") @%p",
-               static_cast<uint64_t>(mChannels.size()), channel->renderThread());
+        DBG("Started new RenderThread (total %" PRIu64 ") @%p\n",
+            static_cast<uint64_t>(mChannels.size()), channel->renderThread());
     }
 
     return channel;

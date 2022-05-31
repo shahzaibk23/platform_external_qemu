@@ -710,15 +710,10 @@ const IOVector Ieee80211Frame::toEthernet() {
 }
 
 uint16_t Ieee80211Frame::getEtherType() const {
-    size_t payloadSize = size() - hdrLength();
-    if (payloadSize >= ETH_HLEN) {
-        if (!memcmp(frameBody(), kRfc1042Header, ETH_ALEN)) {
-            return (frameBody()[ETH_ALEN] << 8) | frameBody()[ETH_ALEN + 1];
-        } else {
-            return (frameBody()[0] << 8) | frameBody()[1];
-        }
+    if (!memcmp(frameBody(), kRfc1042Header, ETH_ALEN)) {
+        return (frameBody()[ETH_ALEN] << 8) | frameBody()[ETH_ALEN + 1];
     } else {
-        return 0;
+        return (frameBody()[0] << 8) | frameBody()[1];
     }
 }
 

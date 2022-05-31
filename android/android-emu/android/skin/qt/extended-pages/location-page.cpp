@@ -40,11 +40,11 @@
 #include <QMovie>
 #include <QSettings>
 #ifdef USE_WEBENGINE
-#if QT_VERSION >= 0x060000
-#include <QtWebEngineCore/QWebEngineProfile>
-#else
+
+
+
 #include <QWebEngineProfile>
-#endif  // QT_VERSION
+
 #endif // USE_WEBENGINE
 
 #include <algorithm>
@@ -198,7 +198,7 @@ LocationPage::LocationPage(QWidget *parent) :
 
     if (useLocationV2) {
 #ifdef USE_WEBENGINE
-        mNetworkConnectivityManager = NetworkConnectivityManager::create(this);
+        mNetworkConnectivityManager = new NetworkConnectivityManager(this);
         connect(mNetworkConnectivityManager,
                 SIGNAL(connectivityStateChanged(NetworkConnectivityManager::State)),
                 this,

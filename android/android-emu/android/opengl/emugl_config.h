@@ -95,7 +95,6 @@ typedef enum SelectedRenderer {
     SELECTED_RENDERER_ERROR = 255,
 } SelectedRenderer;
 
-enum GrallocImplementation { MINIGBM, GOLDFISH_GRALLOC };
 
 // Returns SelectedRenderer value the selected gpu mode.
 // Assumes that the -gpu command line option

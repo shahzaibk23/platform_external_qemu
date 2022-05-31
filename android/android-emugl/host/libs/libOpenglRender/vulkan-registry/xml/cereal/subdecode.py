@@ -370,7 +370,9 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.line("default:")
         self.cgen.beginBlock()
         self.cgen.stmt(
-            "GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
+            "fprintf(stderr, \"Fatal, unrecognized opcode %u\\n\", opcode)")
+        self.cgen.stmt("abort()")
+        self.cgen.stmt("return ptr - (unsigned char *)buf")
         self.cgen.endBlock()
 
         self.cgen.endBlock()  # switch stmt

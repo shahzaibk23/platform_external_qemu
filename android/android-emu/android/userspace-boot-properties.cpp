@@ -16,7 +16,6 @@
 #include <ostream>                                  // for operator<<, ostream
 #include <string>                                   // for string, operator+
 
-#include "android/avd/info.h"
 #include "android/base/Log.h"                       // for LOG, LogMessage
 #include "android/base/StringFormat.h"              // for StringFormat
 #include "android/base/misc/StringUtils.h"          // for splitTokens
@@ -274,9 +273,9 @@ getUserspaceBootProperties(const AndroidOptions* opts,
             });
     }
 
-
-    const char* pTimeout = avdInfo_screen_off_timeout(apiLevel);
-    params.push_back({qemuScreenOffTimeoutProp, pTimeout});
+    // To save battery, set the screen off timeout to a high value.
+    // Using int32_max here. The unit is milliseconds.
+    params.push_back({qemuScreenOffTimeoutProp, "2147483647"}); // 596 hours
     if (apiLevel >= 31 && androidbootVerityMode) {
         params.push_back({androidbootVerityMode, "enforcing"});
     }
@@ -378,7 +377,7 @@ getUserspaceBootProperties(const AndroidOptions* opts,
         params.push_back({qemuCameraProtocolVerProp, "1"});
     }
 
-    if (!opts->camera_hq_edge) {
+    if (opts->no_camera_hq_edge) {
         params.push_back({qemuCameraHqEdgeProp, "0"});
     }
 

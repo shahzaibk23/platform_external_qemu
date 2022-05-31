@@ -1,163 +1,342 @@
-// Copyright (C) 2014 The Android Open Source Project
+// Copyright 2018 The Android Open Source Project
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// This software is licensed under the terms of the GNU General Public
+// License version 2, as published by the Free Software Foundation, and
+// may be copied, distributed, and modified under those terms.
 //
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 
-#include "android/base/memory/LazyInstance.h"
+#include "android/base/ProcessControl.h"
 
-#include "android/base/synchronization/Lock.h"
-#include "android/base/testing/TestThread.h"
+#include <stddef.h>  // for size_t
 
-#include <gtest/gtest.h>
+#include <algorithm>   // for count_if
+#include <fstream>     // for operator<<, basic_ostream
+#include <functional>  // for function, __base
+#include <sstream>
+
+#include "android/base/FunctionView.h"         // for FunctionView
+#include "android/base/Optional.h"             // for Optional, kNullopt
+#include "android/base/files/PathUtils.h"      // for PathUtils
+#include "android/base/memory/LazyInstance.h"  // for LazyInstance, LAZY_INS...
+#include "android/base/process-control.h"      // for handle_emulator_restart
+#include "android/base/system/System.h"        // for System
 
 namespace android {
 namespace base {
 
-namespace {
+bool ProcessLaunchParameters::operator==(
+        const ProcessLaunchParameters& other) const {
+    if (workingDirectory != other.workingDirectory)
+        return false;
+    if (programPath != other.programPath)
+        return false;
+    if (argv.size() != other.argv.size())
+        return false;
 
-class Foo {
-public:
-    Foo() : mValue(42) {}
-    int get() const { return mValue; }
-    void set(int value) { mValue = value; }
-    ~Foo() { mValue = 13; }
-private:
-    int mValue;
-};
-
-class StaticCounter {
-public:
-    StaticCounter() {
-        AutoLock lock(mLock);
-        mCounter++;
+    for (int i = 0; i < argv.size(); ++i) {
+        if (argv[i] != other.argv[i])
+            return false;
     }
 
-    int getValue() const {
-        AutoLock lock(mLock);
-        return mCounter;
+    return true;
+}
+
+std::string ProcessLaunchParameters::str() const {
+    std::stringstream ss;
+
+    ss << "Working directory: [" << workingDirectory << "]" << std::endl;
+    ss << "Program path: [" << programPath << "]" << std::endl;
+    ss << "Arg count: " << argv.size() << std::endl;
+
+    for (int i = 0; i < argv.size(); i++) {
+        ss << "Argv[ " << i << "] : [" << argv[i] << "]" << std::endl;
     }
 
-    static void reset() {
-        AutoLock lock(mLock);
-        mCounter = 0;
+    return ss.str();
+}
+
+inline static std::string escapeCommandLine(const std::string& line) {
+    size_t quoteCnt = std::count_if(line.begin(), line.end(), [](char x) {
+        return x == '"' || x == '\\';
+    });
+    if (quoteCnt == 0)
+        return '"' + line + '"';
+
+    std::string escaped;
+    escaped.reserve(quoteCnt + line.size() + 2);
+    escaped += '"';
+    for (int i = 0; i < line.size(); i++) {
+        if (line[i] == '"' || line[i] == '\\') {
+            escaped += '\\';
+        }
+        escaped += line[i];
+    }
+    escaped += '"';
+
+    return escaped;
+}
+
+std::vector<std::string> makeArgvStrings(int argc, const char** argv) {
+    std::vector<std::string> res;
+
+    for (int i = 0; i < argc; ++i) {
+        res.push_back(argv[i]);
     }
 
-private:
-    static Lock mLock;
-    static int mCounter;
-};
-
-// NOTE: This introduces a static C++ constructor for this object file,
-//       but that's ok because a LazyInstance<Lock> should not be used to
-//       test the behaviour of LazyInstance :-)
-Lock StaticCounter::mLock;
-int StaticCounter::mCounter = 0;
-
-}  // namespace
-
-TEST(LazyInstance, HasInstance) {
-    LazyInstance<Foo> foo_instance = LAZY_INSTANCE_INIT;
-    EXPECT_FALSE(foo_instance.hasInstance());
-    EXPECT_FALSE(foo_instance.hasInstance());
-    foo_instance.ptr();
-    EXPECT_TRUE(foo_instance.hasInstance());
+    return res;
 }
 
-TEST(LazyInstance, Simple) {
-    LazyInstance<Foo> foo_instance = LAZY_INSTANCE_INIT;
-    Foo* foo1 = foo_instance.ptr();
-    EXPECT_TRUE(foo1);
-    EXPECT_EQ(42, foo_instance->get());
-    foo1->set(10);
-    EXPECT_EQ(10, foo_instance->get());
-    EXPECT_EQ(foo1, foo_instance.ptr());
+std::string createEscapedLaunchString(int argc, const char* const* argv) {
+    std::string result;
+    auto mParams = makeArgvStrings(argc, (const char**)argv);
+    for (size_t n = 0; n < mParams.size(); ++n) {
+        if (n > 0) {
+            result += ' ';
+        }
+        result += escapeCommandLine(mParams[n]);
+    }
+    return result;
 }
 
-TEST(LazyInstance, Clear) {
-    LazyInstance<Foo> foo_instance = LAZY_INSTANCE_INIT;
-    EXPECT_EQ(42, foo_instance->get());
-    foo_instance->set(500);
-    foo_instance.clear();
-    EXPECT_EQ(42, foo_instance->get());
+/**
+ * Parses a command line string into individual arguments. The arguments are
+ * separated by whitespace characters. Each argument is optionally enclosed into
+ * double quotes. Double quotes inside quoted arguments and whitespaces inside a
+ * non-quoted ones are escaped by backslashes. Backslashes inside arguments are
+ * doubled. A character preceded by a single backslash is taken literally and
+ * doesn't have any special meaning.
+ */
+std::vector<std::string> parseEscapedLaunchString(std::string launch) {
+    constexpr char kQuote = '\'', kDoubleQuote = '"', kEscape = '\\', kNone = '\000';
+    std::vector<std::string> args;
+    std::string argBuilder;
+    bool insideArgument = false, escaped = false;
+    char quoted = kNone;
+    for (char c : launch) {
+        if (insideArgument) {
+            if (escaped) {
+                argBuilder.push_back(c);
+                escaped = false;
+            } else {
+                if ( (quoted == c) || (quoted == kNone && isspace(c))) {
+                    args.push_back(argBuilder);
+                    argBuilder.clear();
+                    insideArgument = false;
+                    quoted = kNone;
+                } else if (c == kEscape)
+                    escaped = true;
+                else
+                    argBuilder.push_back(c);
+            }
+        } else {
+            if (!isspace(c)) {
+                insideArgument = true;
+                switch (c) {
+                    case kQuote:
+                        quoted = kQuote;
+                        break;
+                    case kDoubleQuote:
+                        quoted = kDoubleQuote;
+                        break;
+                    case kEscape:
+                        escaped = true;
+                        break;
+                    default:
+                        argBuilder.push_back(c);
+                }
+            }
+        }
+    }
+    if (!argBuilder.empty()) {
+        args.push_back(argBuilder);
+    }
+    return args;
 }
 
-// For the following test, launch 1000 threads that each try to get
-// the instance pointer of a lazy instance. Then verify that they're all
-// the same value.
-//
-// The lazy instance has a special constructor that will increment a
-// global counter. This allows us to ensure that it is only called once.
-//
-
-namespace {
-
-// The following is the shared structure between all threads.
-struct MultiState {
-    MultiState(LazyInstance<StaticCounter>* staticCounter) :
-            mLock(), mStaticCounter(staticCounter), mCount(0) {}
-
-    enum {
-        kMaxThreads = 1000,
+ProcessLaunchParameters createLaunchParametersForCurrentProcess(int argc,
+                                                                char** argv) {
+    ProcessLaunchParameters currentLaunchParams = {
+            System::get()->getCurrentDirectory(),
+            PathUtils::join(System::get()->getProgramDirectory(),
+                            PathUtils::decompose(argv[0]).back()),
+            makeArgvStrings(argc, (const char**)argv),
     };
-
-    Lock  mLock;
-    LazyInstance<StaticCounter>* mStaticCounter;
-    size_t mCount;
-    void* mValues[kMaxThreads];
-    TestThread* mThreads[kMaxThreads];
-};
-
-// The thread function for the test below.
-static void* threadFunc(void* param) {
-    MultiState* state = static_cast<MultiState*>(param);
-    AutoLock lock(state->mLock);
-    if (state->mCount < MultiState::kMaxThreads) {
-        state->mValues[state->mCount++] = state->mStaticCounter->ptr();
-    }
-    return NULL;
+    return currentLaunchParams;
 }
 
-}  // namespace
+void saveLaunchParameters(const ProcessLaunchParameters& launchParams,
+                          StringView filename) {
+    std::ofstream file(c_str(filename));
 
-TEST(LazyInstance, MultipleThreads) {
-    StaticCounter::reset();
+    file << launchParams.workingDirectory << std::endl;
+    file << launchParams.programPath << std::endl;
+    file << launchParams.argv.size() << std::endl;
 
-    LazyInstance<StaticCounter> counter_instance = LAZY_INSTANCE_INIT;
-    MultiState state(&counter_instance);
-    const size_t kNumThreads = MultiState::kMaxThreads;
+    for (const auto& arg : launchParams.argv) {
+        // argv[0] is still saved, but can be skipped when launching
+        file << arg << std::endl;
+    }
+}
 
-    // Create all threads.
-    for (size_t n = 0; n < kNumThreads; ++n) {
-        state.mThreads[n] = new TestThread(threadFunc, &state);
+ProcessLaunchParameters loadLaunchParameters(StringView filename) {
+    ProcessLaunchParameters res;
+
+    std::ifstream file(filename);
+
+    std::string line;
+
+    std::getline(file, line);
+    res.workingDirectory = line;
+
+    std::getline(file, line);
+    res.programPath = line;
+
+    std::getline(file, line);
+    std::istringstream iss(line);
+
+    int argc = 0;
+    iss >> argc;
+    res.argv.resize(argc);
+
+    for (int i = 0; i < argc; i++) {
+        std::getline(file, line);
+        res.argv[i] = line;
     }
 
-    // Wait for their completion.
-    for (size_t n = 0; n < kNumThreads; ++n) {
-        state.mThreads[n]->join();
+    return res;
+}
+
+void launchProcessFromParameters(const ProcessLaunchParameters& launchParams,
+                                 bool useArgv0) {
+    std::vector<std::string> cmdArgs;
+    cmdArgs.push_back(launchParams.programPath);
+
+    for (int i = 1; i < launchParams.argv.size(); ++i) {
+        cmdArgs.push_back(launchParams.argv[i]);
     }
 
-    // Now check that the constructor was only called once.
-    EXPECT_EQ(1, counter_instance->getValue());
+    System::get()->runCommand(cmdArgs);
+}
 
-    // Now compare all the store values, they should be the same.
-    StaticCounter* expectedValue = counter_instance.ptr();
-    for (size_t n = 0; n < kNumThreads; ++n) {
-        EXPECT_EQ(expectedValue, state.mValues[n]) << "For thread " << n;
+class RestartGlobals {
+public:
+    RestartGlobals() = default;
+    bool disabled = false;
+    bool doRestartOnExit = false;
+    Optional<ProcessLaunchParameters> restartParams = kNullopt;
+};
+
+static LazyInstance<RestartGlobals> sRestartGlobals = LAZY_INSTANCE_INIT;
+
+void disableRestart() {
+    sRestartGlobals->disabled = true;
+}
+
+bool isRestartDisabled() {
+    return sRestartGlobals->disabled;
+}
+
+static constexpr char kRestartParam[] = "-is-restart";
+
+void initializeEmulatorRestartParameters(int argc,
+                                         char** argv,
+                                         const char* outPath) {
+    auto params = createLaunchParametersForCurrentProcess(argc, argv);
+    android::base::saveLaunchParameters(
+            createLaunchParametersForCurrentProcess(argc, argv),
+            PathUtils::join(outPath, kLaunchParamsFileName));
+    sRestartGlobals->restartParams.emplace(params);
+}
+
+void finalizeEmulatorRestartParameters(const char* dir) {
+    auto path = PathUtils::join(dir, kLaunchParamsFileName);
+
+    if (!System::get()->pathExists(path))
+        return;
+
+    auto params = loadLaunchParameters(path);
+
+    // Add or replace the "-is-restart" option
+    // to make the launch wait for process exit next time
+    bool hasExistingRestartOpt = false;
+    int restartArgIndex = 0;
+    for (const auto& arg : params.argv) {
+        if (arg == kRestartParam) {
+            hasExistingRestartOpt = true;
+            break;
+        }
+        ++restartArgIndex;
     }
 
-    for (size_t n = 0; n < kNumThreads; ++n) {
-        delete state.mThreads[n];
+    std::stringstream ss;
+    ss << System::get()->getCurrentProcessId();
+
+    if (hasExistingRestartOpt) {
+        params.argv[restartArgIndex + 1] = ss.str();
+    } else {
+        params.argv.push_back(kRestartParam);
+        params.argv.push_back(ss.str());
     }
+
+    sRestartGlobals->restartParams.emplace(params);
+}
+
+void setEmulatorRestartOnExit() {
+    if (sRestartGlobals->disabled)
+        return;
+    sRestartGlobals->doRestartOnExit = true;
+}
+
+void handleEmulatorRestart() {
+    auto params = sRestartGlobals->restartParams;
+    if (sRestartGlobals->doRestartOnExit && params) {
+        launchProcessFromParameters(*params);
+    }
+}
+
+class EmulatorRestarter {
+public:
+    EmulatorRestarter() = default;
+
+    void registerQuit(FunctionView<void()> func) { mQuitFunc = func; }
+
+    void quit() {
+        if (mQuitFunc)
+            mQuitFunc();
+    }
+
+    void restart() {
+        if (!mQuitFunc)
+            return;
+        android::base::setEmulatorRestartOnExit();
+        quit();
+    }
+
+private:
+    std::function<void()> mQuitFunc;
+};
+
+static android::base::LazyInstance<EmulatorRestarter> sRestarter =
+        LAZY_INSTANCE_INIT;
+
+void registerEmulatorQuitCallback(FunctionView<void()> func) {
+    sRestarter->registerQuit(func);
+}
+
+void restartEmulator() {
+    sRestarter->restart();
 }
 
 }  // namespace base
 }  // namespace android
+
+extern "C" {
+
+void handle_emulator_restart() {
+    android::base::handleEmulatorRestart();
+}
+}
